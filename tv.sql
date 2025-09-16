@@ -1,0 +1,2 @@
+ALTER TABLE students
+  ADD COLUMN token_version INT NOT NULL DEFAULT 0;
