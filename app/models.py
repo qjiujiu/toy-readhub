@@ -11,13 +11,15 @@ class Book(Base):
     title = Column(String(255), nullable=False)
     author = Column(String(100), nullable=False)
     description = Column(String(500), nullable=True)
+    orders = relationship("BookOrder", back_populates="book")
 
 class Student(Base):
     __tablename__ = "students"
 
     id = Column(Integer, primary_key=True, index=True)
+    student_no = Column(String(32), unique=True, index=True, nullable=False)  # 学号
+    password_hash = Column(String(255), nullable=False)                       # 加密后的密码
     name = Column(String(100), nullable=False)
-    email = Column(String(100), unique=True, index=True, nullable=False)
     phone = Column(String(15), nullable=True)
     
     # 关联借书订单

@@ -1,9 +1,10 @@
 from fastapi import FastAPI
 from app import models, database
-from app.routers import books, students,orders
+from app.routers import books, students,orders, auth
 
+# 创建数据库（确保库存在）
+models.Base.metadata.create_all(bind=database.engine)
 app = FastAPI(title="Library Management System")
-
 
 @app.on_event("startup")
 def startup_event():
@@ -18,6 +19,7 @@ def startup_event():
 app.include_router(books.router)
 app.include_router(students.router)
 app.include_router(orders.router)
+app.include_router(auth.router)
 
 @app.get("/")
 def root():

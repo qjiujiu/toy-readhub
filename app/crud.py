@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from . import models, schemas
+from app import models, schemas
 
 def get_books(db: Session, skip: int = 0, limit: int = 10):
     return db.query(models.Book).offset(skip).limit(limit).all()
@@ -54,3 +54,23 @@ def get_book_orders(db: Session, skip: int = 0, limit: int = 10):
 
 def get_student_orders(db: Session, student_id: int):
     return db.query(models.BookOrder).filter(models.BookOrder.student_id == student_id).all()
+
+
+def student_exists(db: Session, student_id: int) -> bool:
+    return db.query(models.Student.id).filter(models.Student.id == student_id).first() is not None
+
+def book_exists(db: Session, book_id: int) -> bool:
+    return db.query(models.Book.id).filter(models.Book.id == book_id).first() is not None
+
+def get_order(db: Session, order_id: int):
+    return db.query(models.BookOrder).filter(models.BookOrder.id == order_id).first()
+
+def mark_order_returned(db: Session, order_id: int, return_date):
+    order = get_order(db, order_id)
+    if not order:
+        return None
+    order.status = "returned"
+    order.return_date = return_date
+    db.commit()
+    db.refresh(order)
+    return order
