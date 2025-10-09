@@ -2,8 +2,9 @@ from fastapi import FastAPI
 from app import models, database
 from app.routers import books, students,orders
 
+# 创建数据库（确保库存在）
+models.Base.metadata.create_all(bind=database.engine)
 app = FastAPI(title="Library Management System")
-
 
 @app.on_event("startup")
 def startup_event():

@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app import crud, models, schemas, database
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta 
+from pydantic import BaseModel
 
 router = APIRouter(
     prefix="/orders",
@@ -15,12 +16,23 @@ def get_db():
     finally:
         db.close()
 
-# 添加学生借阅信息
+# 添加学生借阅信息（管理员/馆员使用：显式传 student_id）
 @router.post("/", response_model=schemas.BookOrderOut)
 def create_book_order(order: schemas.BookOrderCreate, db: Session = Depends(get_db)):
-    # 设置还书日期为借书日期后的30天
-    if not order.return_date:  # 如果没有提供还书日期，则设置为借书日期后30天
-        order.return_date = datetime.now() + timedelta(days=30)
+    # 1) 学生是否存在（已注册）
+    if not crud.student_exists(db, order.student_id):
+        raise HTTPException(status_code=400, detail="Student not registered in the system")
+
+    # 2) 书是否存在
+    if not crud.book_exists(db, order.book_id):
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    # 3) 还书日期：默认=借书日期+30天（如果未提供）
+    if not order.return_date:
+        # 若你的 BookOrderCreate 要求 borrow_date 必传，这里可直接用它
+        base_date = order.borrow_date or datetime.utcnow()
+        order.return_date = base_date + timedelta(days=30)
+
     return crud.create_book_order(db=db, book_order=order)
 
 # 获取所有书本借阅记录
@@ -37,3 +49,20 @@ def get_student_orders(student_id: int, db: Session = Depends(get_db)):
 @router.get("/books/{book_id}", response_model=list[schemas.BookOrderOut])
 def get_book_borrow_records(book_id: int, db: Session = Depends(get_db)):
     return crud.get_book_borrow_records(db=db, book_id=book_id)
+
+# —— 还书（管理员/馆员操作）——
+@router.put("/{order_id}/return", response_model=schemas.BookOrderOut)
+def return_book(order_id: int,
+                return_date: datetime | None = None,
+                db: Session = Depends(get_db)):
+    order = crud.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # 如果学生记录被删除，则视为非注册，不允许还书（你也可以选择允许并仅修改订单状态）
+    if not crud.student_exists(db, order.student_id):
+        raise HTTPException(status_code=400, detail="Student not registered in the system")
+
+    rd = return_date or datetime.utcnow()
+    updated = crud.mark_order_returned(db, order_id, rd)
+    return updated
