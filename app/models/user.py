@@ -1,18 +1,18 @@
 # 基本用户信息模型
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
-from .base import Base
+from app.models.base import Base
 
 class User(Base):
-    """ 用户模型，对应数据库中的 Users 表。
+    """ 用户模型，对应数据库中的 users 表。
     
         USE BookHub;
-        CREATE TABLE IF NOT EXISTS Users (
+        CREATE TABLE IF NOT EXISTS users (
             uid INT AUTO_INCREMENT PRIMARY KEY,     -- 用户 ID
             name VARCHAR(100) NOT NULL,             -- 姓名
             student_id VARCHAR(20) NOT NULL UNIQUE, -- 业务唯一号码，学号，唯一，不同于底层使用的 uid
-            email VARCHAR(50),     					-- 邮箱
-            phone VARCHAR(50) NOT NULL              -- 电话（可为空）
+            email VARCHAR(50),     					-- 邮箱（可为空）
+            phone VARCHAR(50) NOT NULL              -- 电话
         );
 
     """

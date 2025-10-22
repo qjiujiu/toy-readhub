@@ -5,6 +5,8 @@ from datetime import datetime
 from app.models.base import Base
 
 # 可选：在应用层用 Enum 来校验和限制状态值（不直接映射数据库 Enum）
+# 在业务层约束方便后续修改
+# 倘若在数据库层约束，需要打开Navicat，更新约束，然后把存量的数据批量更新
 from enum import Enum
 
 class OrderStatus(str, Enum):
@@ -14,24 +16,24 @@ class OrderStatus(str, Enum):
 
 
 class Order(Base):
-    """ 借阅订单 ORM 模型，对应 MySQL 之中的 Orders 表：
+    """ 借阅订单 ORM 模型，对应 MySQL 之中的 orders 表：
 
-    CREATE TABLE IF NOT EXISTS Orders (
+    CREATE TABLE IF NOT EXISTS orders (
         order_id VARCHAR(64) PRIMARY KEY,        		     -- 借阅单号（可以用 UUID 或系统生成编码）
         user_id INT NOT NULL,                     			 -- 借阅人 ID（可关联用户系统）
         book_id INT NOT NULL,                     			 -- 借阅书籍
         warehouse_name VARCHAR(100) NOT NULL,     			 -- 所借书所在图书馆/仓库
         status VARCHAR(20) NOT NULL DEFAULT 'borrowed',      -- 借阅状态
         borrow_time DATETIME NOT NULL,           			 -- 借出时间
-        return_time DATETIME,                    		     -- 归还时间（可为空）
+        return_time DATETIME                    		     -- 归还时间（可为空）
 
     );
 
-    ALTER TABLE Orders
+    ALTER TABLE orders
     ADD CONSTRAINT fk_orders_book_id
     FOREIGN KEY (book_id) REFERENCES Books(bid);
 
-    ALTER TABLE Orders
+    ALTER TABLE orders
     ADD CONSTRAINT fk_orders_user_id
     FOREIGN KEY (user_id) REFERENCES Users(uid);
 
