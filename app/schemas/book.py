@@ -16,6 +16,7 @@ class BookCreate(BaseModel):
     # Pydantic 将自动将对象实例转换为字典并进行验证
     model_config = ConfigDict(from_attributes=True)
 
+
 # 返回的图书信息
 class BookOut(BaseModel):
     bid: int                        # 图书 ID

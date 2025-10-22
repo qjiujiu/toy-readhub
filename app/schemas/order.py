@@ -10,9 +10,8 @@ class OrderStatus(str, Enum):
     returned = "returned"
     lost = "lost"
 
-
 # 创建借阅订单的请求体
-class OrderCreate(BaseModel):
+class OrderStatus(BaseModel):
     user_id: int                  # 借阅人ID
     book_id: int                  # 图书ID
     warehouse_name: str           # 所借书所在图书馆/仓库
