@@ -1,24 +1,12 @@
 from fastapi import FastAPI
 from app import models
 from app.routers import books, users
-from app.storage import database
 
-# 创建数据库（确保库存在）
-database.Base.metadata.create_all(bind=database.engine)
 app = FastAPI(title="Library Management System")
 
-@app.on_event("startup")
-def startup_event():
-    # 确保数据库存在
-    database.init_database()
-    # 确保表存在
-    database.Base.metadata.create_all(bind=database.engine)
-    print("✅ 数据库表已确认存在！")
-
-
 # 注册路由
-app.include_router(books.router)
-app.include_router(users.router)
+app.include_router(books.books_router)
+app.include_router(users.users_router)
 # app.include_router(orders.router)
 
 @app.get("/")
