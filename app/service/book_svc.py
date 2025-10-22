@@ -10,10 +10,14 @@ from app.storage.book_inventory.book_inventory_interface import IBookInventoryRe
 from app.schemas.book_inventory import (
     BookInventoryCreate
 )
+from app.models.book import TagCategory
 
 # 批量查询图书（可分页）
 def get_batch_books(repo: IBookRepository, page: int = 0, page_size: int = 10) -> Dict:
     batch_books = repo.get_batch_books(page, page_size)
+    # 对返回的每本书，转换tags为类别名称
+    for book in batch_books['books']:
+        book['tags'] = TagCategory.to_name(book['tags'])
     return batch_books
 
 
@@ -22,6 +26,7 @@ def get_book_by_bid(repo: IBookRepository, bid: int, to_dict: bool = True) -> Op
     book = repo.get_book_by_bid(bid)
     if not book:
         return None
+    book['tags'] = TagCategory.to_name(book['tags'])
     return book
 
 
@@ -30,18 +35,24 @@ def get_book_by_isbn(repo: IBookRepository, isbn: str, to_dict: bool = True) -> 
     book = repo.get_book_by_isbn(isbn)
     if not book:
         return None
+    # 将字母转换为类别名称
+    book['tags'] = TagCategory.to_name(book['tags'])
     return book
 
 
 # 根据书名获取图书（可能有多本书同名）
 def get_books_by_title(repo: IBookRepository, title: str) -> List[Dict]:
     books = repo.get_books_by_title(title)
+    for book in books['books']:
+        book['tags'] = TagCategory.to_name(book['tags'])
     return books
 
 
 # 根据作者获取图书（可能有多本书同一作者）
 def get_books_by_author(repo: IBookRepository, author: str) -> List[Dict]:
     books = repo.get_books_by_author(author)
+    for book in books['books']:
+        book['tags'] = TagCategory.to_name(book['tags'])
     return books
 
 
@@ -51,66 +62,63 @@ def create_batch_books(repo: IBookRepository, books: List[BookCreate]) -> Dict:
     return batch_books
 
 
-# # 创建单本图书
+# 创建单本图书
 # def create_book(repo: IBookRepository, book_data: BookCreate) -> Dict:
+#     # 校验tags字段是否为合法字母
+#     if book_data.tags:
+#         try:
+#             TagCategory.validate_tag(book_data.tags)  # 校验tag是否合法（只校验字母）
+#         except ValueError as e:
+#             raise ValueError(f"Invalid tag: {str(e)}")
+
+#     # 调用数据层创建图书
 #     new_book = repo.create_book(book_data)
 #     return new_book
 
 
-# 创建单本图书
-def create_book(repo: IBookRepository, inventory_repo: IBookInventoryRepository, book_data: BookCreate) -> Dict:
-    # 1. 检查图书是否已存在
-    existing_book = repo.get_book_by_isbn(book_data.isbn)
-    
-    if not existing_book:
-        # 2. 如果图书不存在，创建新图书
-        new_book = repo.create_book(book_data)
+def create_book(book_repo: IBookRepository, inv_repo: IBookInventoryRepository, book_data: BookCreate) -> Dict:  # 返回的是 BookInventoryOut 的 dict
+    print(book_data)
+    # 1) 校验 tags
+    if book_data.tags:
+        try:
+            book_data.tags = TagCategory.validate_tag(book_data.tags)
+        except ValueError as e:
+            raise ValueError(f"Invalid tag: {e}")
 
-        # 3. 创建库存信息，并将初始库存为 1
-        inventory_data = BookInventoryCreate(
-            book_id=new_book["bid"],  # 获取新创建的图书ID
-            warehouse_name=book_data.warehouse_name
-        )
-        new_inventory = inventory_repo.create_inventory(inventory_data)
-        
-        return {"book": new_book, "inventory": new_inventory}  # 返回新创建的图书和库存信息
+    # 2) 校验库存必要信息：warehouse_name
+    if not book_data.warehouse_name or not book_data.warehouse_name.strip():
+        raise ValueError("warehouse_name is required for inventory")
+    warehouse_name = book_data.warehouse_name.strip()
 
-    else:
-        # 4. 如果图书已存在，检查该图书在指定仓库的库存
-        book_id = existing_book["bid"]  # 获取现有图书的ID
+    # 3) 查是否已存在同 ISBN 的图书
+    existing_book = book_repo.get_book_by_isbn(book_data.isbn)  # None 或 BookOut 的 dict
+    if existing_book:
+        book_id = existing_book["bid"]
 
-        # 5. 查找该图书在对应仓库的库存记录
-        existing_inventory = inventory_repo.get_inventory_by_book_id(book_id)
-        
-        if existing_inventory:
-            # 6. 如果库存记录已存在，且仓库名称相同，更新库存数量
-            
-            # TODO 这里的库存量没有更新 
-
-            if existing_inventory["warehouse_name"] == book_data.warehouse_name:
-                inventory_data = BookInventoryCreate(
-                    book_id=book_id,
-                    warehouse_name=book_data.warehouse_name
-                )
-                # 更新库存
-                updated_inventory = inventory_repo.update_inventory(book_id, inventory_data)
-                return {"book": existing_book, "inventory": updated_inventory}
-            else:
-                # 7. 如果仓库名称不同，则在 `book_inventory` 表中创建新的库存记录
-                inventory_data = BookInventoryCreate(
-                    book_id=book_id,
-                    warehouse_name=book_data.warehouse_name
-                )
-                new_inventory = inventory_repo.create_inventory(inventory_data)
-                return {"book": existing_book, "inventory": new_inventory}
+        # 3.1 查该仓库是否已有库存
+        inv = inv_repo.get_by_bid_and_warehouse(book_id=book_id, warehouse_name=warehouse_name)
+        if inv:
+            # 3.2 已有库存 → 数量 +1，并返回更新后的库存（含 book 嵌套）
+            updated = inv_repo.increment_quantity(book_id=book_id, warehouse_name=warehouse_name, delta=1)
+            # increment_quantity 按我们实现会返回更新后的 BookInventoryOut；若返回 None（极少见并发），兜底再查一次
+            return updated or inv_repo.get_by_book_and_warehouse(book_id=book_id, warehouse_name=warehouse_name)
         else:
-            # 8. 如果该图书没有库存记录，新增库存记录
-            inventory_data = BookInventoryCreate(
-                book_id=book_id,
-                warehouse_name=book_data.warehouse_name
+            # 3.3 无库存 → 新建库存 quantity=1，并返回（含 book 嵌套）
+            created = inv_repo.create_inventory(
+                BookInventoryCreate(book_id=book_id, warehouse_name=warehouse_name)
             )
-            new_inventory = inventory_repo.create_inventory(inventory_data)
-            return {"book": existing_book, "inventory": new_inventory}
+            return created
+
+    # 4) 不存在图书：先插 books，再插库存，并返回 BookInventoryOut
+    payload = book_data.model_dump()
+    payload.pop("warehouse_name", None)  # 删掉不属于 Book 的字段
+    created_book = book_repo.create_book(BookCreate(**payload))
+    book_id = created_book["bid"]
+
+    created_inv = inv_repo.create_inventory(
+        BookInventoryCreate(book_id=book_id, warehouse_name=warehouse_name)
+    )
+    return created_inv
 
 
 # 更新图书信息（通过 ISBN）
