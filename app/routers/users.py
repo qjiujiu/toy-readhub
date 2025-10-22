@@ -7,11 +7,11 @@ from app.storage.database import get_user_repo
 from typing import Optional, Dict, List
 from app.storage.user.user_interface import IUserRepository
 
-router = APIRouter()
+users_router = APIRouter(prefix="/users", tags=["users"])
 
     
 # 添加学生信息
-@router.post("/user", response_model=UserOut)
+@users_router.post("/", response_model=UserOut)
 def create_user(user: UserCreate, repo: IUserRepository = Depends(get_user_repo)):
     try:
         new_user = user_svc.create_user(repo, user)
@@ -20,7 +20,7 @@ def create_user(user: UserCreate, repo: IUserRepository = Depends(get_user_repo)
         return BizResponse(data=None, msg=str(e), status_code=500)
 
 # 批量添加学生
-@router.post("/users", response_model=BatchUsersOut)
+@users_router.post("/batch", response_model=BatchUsersOut)
 def create_batch_users(users: List[UserCreate], repo: IUserRepository = Depends(get_user_repo)):
     try:
         new_user = user_svc.create_batch_users(repo, users)
@@ -30,7 +30,7 @@ def create_batch_users(users: List[UserCreate], repo: IUserRepository = Depends(
 
 
 # 获取学生信息（批量查询，支持分页）
-@router.get("/users", response_model=UserOut)
+@users_router.get("/", response_model=UserOut)
 def query_batch_users(page: int = 0, page_size: int = 10,  repo: IUserRepository = Depends(get_user_repo)):
     try:
         result = user_svc.get_batch_users(repo, page, page_size)
@@ -39,7 +39,7 @@ def query_batch_users(page: int = 0, page_size: int = 10,  repo: IUserRepository
         return BizResponse(data=list(), msg=str(e), status_code=500)
 
 # 获取学生信息（根据uid查询）
-@router.get("/user/{uid}", response_model=UserOut)
+@users_router.get("/id/{uid}", response_model=UserOut)
 def query_user(uid: int, repo: IUserRepository = Depends(get_user_repo)):
     try:
         user = user_svc.get_user_by_uid(repo, uid)
@@ -48,7 +48,7 @@ def query_user(uid: int, repo: IUserRepository = Depends(get_user_repo)):
         return BizResponse(data=None, msg=str(e), status_code=500)
 
 # 获取学生信息（根据学号查询）
-@router.get("/{student_id}", response_model=UserOut)
+@users_router.get("/sid/{student_id}", response_model=UserOut)
 def get_student(student_id: str, repo: IUserRepository = Depends(get_user_repo)):
     user = user_svc.get_user_by_student_id(repo=repo, student_id=student_id)
     if not user:
@@ -57,25 +57,25 @@ def get_student(student_id: str, repo: IUserRepository = Depends(get_user_repo))
 
 
 # 更新学生信息
-@router.put("/users/{uid}", response_model=UserOut)
-def update_user(uid: int, user_update: UserUpdate, repo: IUserRepository = Depends(get_user_repo)):
+@users_router.put("/{student_id}", response_model=UserOut)
+def update_user(student_id: str, user_update: UserUpdate, repo: IUserRepository = Depends(get_user_repo)):
     try:
-        user = user_svc.update_user(repo, uid, user_update)
+        user = user_svc.update_user(repo, student_id, user_update)
         if user:
             return BizResponse(data=user)
         else:
-            return BizResponse(data=user, msg=f"updated failed: {uid} not found.")
+            return BizResponse(data=user, msg=f"updated failed: {student_id} not found.")
     
     except Exception as e:
         return BizResponse(data=None, msg=str(e), status_code=500)
 
 
 # 删除学生
-@router.delete("/users/{uid}", response_model=UserOut)
-def delete_user(uid: int, repo: IUserRepository = Depends(get_user_repo)):
+@users_router.delete("/{student_id}", response_model=UserOut)
+def delete_user(student_id: str, repo: IUserRepository = Depends(get_user_repo)):
     try:
-        user_svc.delete_user(repo, uid)
-        return BizResponse(data=True)
+        user = user_svc.delete_user(repo, student_id)
+        return BizResponse(data=user, msg=f"delete successfully")
     except Exception as e:
         return BizResponse(data=False, msg=str(e), status_code=500)
 
