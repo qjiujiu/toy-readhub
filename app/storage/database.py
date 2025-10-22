@@ -64,5 +64,5 @@ def get_user_repo(db: Session = Depends(get_db)) -> SQLAlchemyUserRepository:
 def get_book_repo(db: Session = Depends(get_db)) -> SQLAlchemyBookRepository:
     return SQLAlchemyBookRepository(db)
 
-def get_book_repo(db: Session = Depends(get_db)) -> SQLAlchemyBookinvRepository:
+def get_bookinv_repo(db: Session = Depends(get_db)) -> SQLAlchemyBookinvRepository:
     return SQLAlchemyBookinvRepository(db)

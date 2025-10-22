@@ -5,18 +5,7 @@ from app.storage.book.book_interface import IBookRepository
 from typing import Optional, List, Dict, Union
 from contextlib import contextmanager
 import logging
-
-# 使用 Python上下文管理器来处理数据库事务, 在失败的时候自动回滚, 通过事务管理器来保证原子性
-# 成功时提交事务(commit),  commit 完成之后才能调用 refresh 获取最新状态;  失败时回滚事务, 打印异常调用栈，并且重新向上抛出异常!
-@contextmanager
-def transaction(db: Session):
-    try:
-        yield db
-        db.commit()  # 提交事务
-    except Exception as e:
-        logging.exception(e)
-        db.rollback()  # 回滚事务
-        raise
+from app.core.db import transaction
 
 
 class SQLAlchemyBookRepository(IBookRepository):

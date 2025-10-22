@@ -3,21 +3,9 @@ from app.models.book_inventory import BookInventory  # 图书库存模型
 from app.schemas.book_inventory import BookInventoryCreate, BookInventoryUpdate, BookInventoryOut
 from app.storage.book_inventory.book_inventory_interface import IBookInventoryRepository
 from typing import Optional, Dict, List
-from contextlib import contextmanager
-import logging
-
-# 使用 Python上下文管理器来处理数据库事务, 在失败的时候自动回滚, 通过事务管理器来保证原子性
-# 成功时提交事务(commit),  commit 完成之后才能调用 refresh 获取最新状态;  失败时回滚事务, 打印异常调用栈，并且重新向上抛出异常!
-@contextmanager
-def transaction(db: Session):
-    try:
-        yield db
-        db.commit()  # 提交事务
-    except Exception as e:
-        logging.exception(e)
-        db.rollback()  # 回滚事务
-        raise
-
+from app.core.db import transaction
+from sqlalchemy.exc import MultipleResultsFound
+from sqlalchemy.orm import selectinload
 class SQLAlchemyBookinvRepository(IBookInventoryRepository):
     def __init__(self, db: Session):
         self.db = db  # 数据库会话对象
@@ -30,22 +18,52 @@ class SQLAlchemyBookinvRepository(IBookInventoryRepository):
             return BookInventoryOut.model_validate(inventory).model_dump()  # 返回图书库存信息
         return None  # 若没有找到对应的库存信息，返回 None
 
+
+    def get_by_bid_and_warehouse(self, book_id: int, warehouse_name: str) -> Optional[dict]:
+        name = (warehouse_name or "").strip()
+        inv = (
+            self.db.query(BookInventory)
+            .options(selectinload(BookInventory.book))  # 关键：加载嵌套对象
+            .filter(BookInventory.book_id == book_id,
+                    BookInventory.warehouse_name == name)
+            .one_or_none()
+        )
+        if not inv:
+            return None
+        return BookInventoryOut.model_validate(inv).model_dump()
+
+
+    # 根据图书ID和仓库名称增加库存数量（默认 +1）
+    def increment_quantity(self, book_id: int, warehouse_name: str, delta: int = 1) -> Optional[dict]:
+        inv = (
+            self.db.query(BookInventory)
+            .options(selectinload(BookInventory.book))
+            .filter(BookInventory.book_id == book_id,
+                    BookInventory.warehouse_name == warehouse_name.strip())
+            .one_or_none()
+        )
+        if not inv:
+            return None
+        inv.quantity += delta
+        with transaction(self.db):
+            self.db.add(inv)
+        self.db.refresh(inv)
+        return BookInventoryOut.model_validate(inv).model_dump()
+
+    
     # 添加一本图书的库存信息，初始库存为 1
-    def create_inventory(self, inventory_data: BookInventoryCreate) -> BookInventoryOut:
-        # 创建新的图书库存对象，并设置库存初始值为 1
-        inventory = BookInventory(
+    def create_inventory(self, inventory_data: BookInventoryCreate) -> dict:
+        inv = BookInventory(
             book_id=inventory_data.book_id,
             warehouse_name=inventory_data.warehouse_name,
-            quantity=1  # 初始库存为 1
+            quantity=1
         )
-
-        # 使用事务管理器来将添加新用户到数据库
         with transaction(self.db):
-            self.db.add(inventory)
-
-        self.db.refresh(inventory)  # 刷新以确保获取到数据库中生成的 ID 等信息
-
-        return BookInventoryOut.model_validate(inventory).model_dump()  # 返回新创建的库存信息
+            self.db.add(inv)
+        # 确保关系可用（当前会话中 inv.book 会被懒加载；为安全也可 selectinload 重新查一次）
+        self.db.refresh(inv)
+        _ = inv.book  # 触发加载（若未加载）
+        return BookInventoryOut.model_validate(inv).model_dump()
 
     # 修改图书库存数量
     def update_inventory(self, book_id: int, inventory_data: BookInventoryUpdate) -> Optional[BookInventoryOut]:
