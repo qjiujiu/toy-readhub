@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text
 from sqlalchemy.orm import relationship
 from app.models.base import Base
-
+from typing import List, Dict, Any
 from enum import Enum
 
 class TagCategory(Enum):
@@ -33,11 +33,28 @@ class TagCategory(Enum):
     def validate_tag(cls, tag: str):
         if tag not in cls.__members__:
             raise ValueError(f"Invalid tag: {tag} is not a valid category.")
+    # 把字母转成中文类别名
     @classmethod
     def to_name(cls, tag: str) -> str:
-        """把字母转成中文类别名"""
-        key = cls.validate_tag(tag)
-        return cls[key].value
+        cls.validate_tag(tag)
+        return cls[tag].value
+    
+    #  遍历库存记录列表，将其中每个 book 的 tags 从字母转为中文类别名
+    @classmethod
+    def translate_books(cls, books: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        param books: List[dict]，每个元素形如 {"book": {"tags": "F", ...}, ...}
+        return: List[dict]，修改后的 books 列表
+        """
+        for item in books:
+            book = item.get("book")
+            if book and book.get("tags"):
+                try:
+                    book["tags"] = cls.to_name(book["tags"])
+                except Exception as e:
+                    # 出现非法标签或异常时，可选择忽略或打印日志
+                    pass
+        return books
 
 class Book(Base):
     """ 图书数据库模型，用于表示每本书的基本信息、库存量以及所在区域等信息。
