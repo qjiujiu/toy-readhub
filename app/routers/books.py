@@ -12,18 +12,8 @@ from sqlalchemy.exc import IntegrityError
 
 books_router = APIRouter(prefix="/books", tags=["books"])
 
-# 创建单本图书
-# @books_router.post("/", response_model=BookOut)
-# def create_book(book: BookCreate, book_repo: IBookRepository = Depends(get_book_repo), inv_repo: IBookInventoryRepository = Depends(get_bookinv_repo)):
-#     try:
-#         new_book = book_svc.create_book(book_repo=book_repo, inv_repo=inv_repo, book_data=book)
-#         return BizResponse(data=new_book)
-#     except Exception as e:
-#         return BizResponse(data=None, msg=str(e), status_code=500)
-
 @books_router.post("/")  # 不要写 response_model
 def create_book(book: BookCreate, book_repo: IBookRepository = Depends(get_book_repo), inv_repo: IBookInventoryRepository = Depends(get_bookinv_repo)):
-    # print(book)
     try:
         result = book_svc.create_book(book_repo=book_repo, inv_repo=inv_repo, book_data=book)
         return BizResponse(data=result)  # 统一外壳
@@ -37,13 +27,65 @@ def create_book(book: BookCreate, book_repo: IBookRepository = Depends(get_book_
     
 
 # 批量添加图书
-@books_router.post("/batch", response_model=BatchBooksOut)
-def create_batch_books(books: List[BookCreate], repo: IBookRepository = Depends(get_book_repo)):
+@books_router.post("/batch")
+def create_batch(payload: List[BookCreate], book_repo: IBookRepository = Depends(get_book_repo), inv_repo: IBookInventoryRepository = Depends(get_bookinv_repo)):
     try:
-        new_books = book_svc.create_batch_books(repo, books)
-        return BizResponse(data=new_books)
+        result = book_svc.create_batch_books(book_repo, inv_repo, payload)
+        # 约定：只要有成功项就 200；全失败可视情况返回 207/207 Multi-Status 或 400
+        return BizResponse(data=result)
     except Exception as e:
         return BizResponse(data=None, msg=str(e), status_code=500)
+
+@books_router.get("/id/{bid}")
+def get_inventories_by_bid(bid: int, inv_repo: IBookInventoryRepository = Depends(get_bookinv_repo)):
+    try:
+        items = book_svc.get_book_by_bid(inv_repo=inv_repo, bid=bid)  # List[dict]
+        if not items:
+            return BizResponse(data=[], msg="No books found with this book_id", status_code=404)
+        return BizResponse(data=items)
+    except Exception as e:
+        return BizResponse(data=None, msg=str(e), status_code=500)
+
+# 获取图书信息（根据ISBN查询）
+@books_router.get("/isbn/{isbn}")
+def get_book_by_isbn(isbn: str, book_repo: IBookRepository = Depends(get_book_repo), inv_repo: IBookInventoryRepository = Depends(get_bookinv_repo)):
+    try:
+        items = book_svc.get_book_by_isbn(book_repo, inv_repo, isbn)
+        if not items:
+            return BizResponse(data=[], msg="No books found with this isbn", status_code=404)
+        return BizResponse(data=items)
+    except Exception as e:
+        return BizResponse(data=None, msg=str(e), status_code=500)
+
+# 获取图书信息（根据书名查询）
+@books_router.get("/title/{title}")
+def get_books_by_title(title: str, book_repo: IBookRepository = Depends(get_book_repo)):
+    try:
+        books = book_svc.get_books_by_title(book_repo, title)
+        if books:
+            return BizResponse(data=books)
+        else:
+            return BizResponse(data=[], msg="No books found with this title", status_code=404)
+    except Exception as e:
+        return BizResponse(data=[], msg=str(e), status_code=500)
+
+# 获取图书信息（根据作者查询）
+@books_router.get("/author/{author}")
+def get_books_by_author(author: str, book_repo: IBookRepository = Depends(get_book_repo)):
+    try:
+        books = book_svc.get_books_by_author(book_repo, author)
+        if books:
+            return BizResponse(data=books)
+        else:
+            return BizResponse(data=[], msg="No books found with this author", status_code=404)
+    except Exception as e:
+        return BizResponse(data=[], msg=str(e), status_code=500)
+
+
+
+
+
+# TODO: 以下接口功能待完善
 
 # 获取图书信息（批量查询，支持分页）
 @books_router.get("/", response_model=BatchBooksOut)
@@ -54,53 +96,6 @@ def get_books(page: int = 0, page_size: int = 10, repo: IBookRepository = Depend
     except Exception as e:
         return BizResponse(data=list(), msg=str(e), status_code=500)
 
-# 获取图书信息（根据图书ID查询）
-@books_router.get("/id/{bid}", response_model=BookOut)
-def get_book_by_bid(bid: int, repo: IBookRepository = Depends(get_book_repo)):
-    try:
-        book = book_svc.get_book_by_bid(repo, bid)
-        if book:
-            return BizResponse(data=book)
-        else:
-            return BizResponse(data=None, msg="Book not found", status_code=404)
-    except Exception as e:
-        return BizResponse(data=None, msg=str(e), status_code=500)
-
-# 获取图书信息（根据ISBN查询）
-@books_router.get("/isbn/{isbn}", response_model=BookOut)
-def get_book_by_isbn(isbn: str, repo: IBookRepository = Depends(get_book_repo)):
-    try:
-        book = book_svc.get_book_by_isbn(repo, isbn)
-        if book:
-            return BizResponse(data=book)
-        else:
-            return BizResponse(data=None, msg="Book not found", status_code=404)
-    except Exception as e:
-        return BizResponse(data=None, msg=str(e), status_code=500)
-
-# 获取图书信息（根据书名查询）
-@books_router.get("/title/{title}", response_model=List[BookOut])
-def get_books_by_title(title: str, repo: IBookRepository = Depends(get_book_repo)):
-    try:
-        books = book_svc.get_books_by_title(repo, title)
-        if books:
-            return BizResponse(data=books)
-        else:
-            return BizResponse(data=[], msg="No books found with this title", status_code=404)
-    except Exception as e:
-        return BizResponse(data=[], msg=str(e), status_code=500)
-
-# 获取图书信息（根据作者查询）
-@books_router.get("/author/{author}", response_model=List[BookOut])
-def get_books_by_author(author: str, repo: IBookRepository = Depends(get_book_repo)):
-    try:
-        books = book_svc.get_books_by_author(repo, author)
-        if books:
-            return BizResponse(data=books)
-        else:
-            return BizResponse(data=[], msg="No books found with this author", status_code=404)
-    except Exception as e:
-        return BizResponse(data=[], msg=str(e), status_code=500)
 
 # 更新图书信息
 @books_router.put("/{bid}", response_model=BookOut)
