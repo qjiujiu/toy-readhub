@@ -16,6 +16,16 @@ class BookCreate(BaseModel):
     # Pydantic 将自动将对象实例转换为字典并进行验证
     model_config = ConfigDict(from_attributes=True)
 
+class BookOnlyCreate(BaseModel):
+    title: str
+    author: str
+    isbn: str
+    abstract: Optional[str] = None
+    area: Optional[str] = None
+    floor: Optional[str] = None
+    tags: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 # 返回的图书信息
 class BookOut(BaseModel):
@@ -27,8 +37,6 @@ class BookOut(BaseModel):
     area: Optional[str]             # 所在区域
     floor: Optional[str]            # 所在楼层
     tags: Optional[str]             # 图书标签
-
-    warehouse_name: Optional[str]   # 仓库名称(图书存放的校区)
 
     model_config = ConfigDict(from_attributes=True)
 
