@@ -1,10 +1,10 @@
 from sqlalchemy.orm import Session
 from app.models.book import Book
-from app.schemas.book import BookCreate, BookUpdate, BookOut, BatchBooksOut
+from app.schemas.book import BookCreate, BookUpdate, BookOut, BatchBooksOut, BookOnlyCreate
 from app.storage.book.book_interface import IBookRepository
 from typing import Optional, List, Dict, Union
 from contextlib import contextmanager
-import logging
+from app.core.logx import logger
 from app.core.db import transaction
 
 
@@ -43,22 +43,9 @@ class SQLAlchemyBookRepository(IBookRepository):
         books = self.db.query(Book).filter(Book.author == author).all()
         return [BookOut.model_validate(book).model_dump() for book in books]
 
-    # 批量创建图书
-    def create_batch_books(self, books: List[BookCreate]) -> BatchBooksOut:
-        book_orms = [Book(**b.dict()) for b in books]
-        
-        with transaction(self.db):  # 使用事务管理器
-            self.db.add_all(book_orms)  # 批量添加图书
-        
-        # 刷新每个图书以便获取自增主键等
-        for book in book_orms:
-            self.db.refresh(book)
-        
-        return BatchBooksOut(total=len(book_orms), count=len(book_orms), books=book_orms).model_dump()
-
     # 创建单本图书
-    def create_book(self, book_data: BookCreate) -> BookOut:
-        book = Book(**book_data.dict())
+    def create_book(self, book_data: BookOnlyCreate) -> BookOut:
+        book = Book(**book_data.model_dump())
 
         with transaction(self.db):  # 使用事务管理器
             self.db.add(book)  # 添加图书

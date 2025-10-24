@@ -6,19 +6,23 @@ from typing import Optional, Dict, List
 from app.core.db import transaction
 from sqlalchemy.exc import MultipleResultsFound
 from sqlalchemy.orm import selectinload
+from app.core.logx import logger
 class SQLAlchemyBookinvRepository(IBookInventoryRepository):
     def __init__(self, db: Session):
         self.db = db  # 数据库会话对象
-
+    
     # 根据图书ID获取图书库存信息
-    def get_inventory_by_book_id(self, book_id: int) -> Optional[BookInventoryOut]:
-        # 查找图书库存信息，基于图书的ID
-        inventory = self.db.query(BookInventory).filter(BookInventory.book_id == book_id).first()
-        if inventory:
-            return BookInventoryOut.model_validate(inventory).model_dump()  # 返回图书库存信息
-        return None  # 若没有找到对应的库存信息，返回 None
+    def get_inventories_by_bid(self, book_id: int) -> List[dict]:
+        invs = (
+            self.db.query(BookInventory)
+            .options(selectinload(BookInventory.book))  # 预加载嵌套图书
+            .filter(BookInventory.book_id == book_id)
+            .order_by(BookInventory.warehouse_name.asc())  # 可选：按校区名排序
+            .all()
+        )
+        return [BookInventoryOut.model_validate(inv).model_dump() for inv in invs]
 
-
+    # 根据图书ID和校区信息获取图书记录
     def get_by_bid_and_warehouse(self, book_id: int, warehouse_name: str) -> Optional[dict]:
         name = (warehouse_name or "").strip()
         inv = (
@@ -52,12 +56,8 @@ class SQLAlchemyBookinvRepository(IBookInventoryRepository):
 
     
     # 添加一本图书的库存信息，初始库存为 1
-    def create_inventory(self, inventory_data: BookInventoryCreate) -> dict:
-        inv = BookInventory(
-            book_id=inventory_data.book_id,
-            warehouse_name=inventory_data.warehouse_name,
-            quantity=1
-        )
+    def create_inventory(self, inventory_data: BookInventoryCreate) -> Dict:
+        inv = BookInventory(book_id=inventory_data.book_id, warehouse_name=inventory_data.warehouse_name, quantity=1)
         with transaction(self.db):
             self.db.add(inv)
         # 确保关系可用（当前会话中 inv.book 会被懒加载；为安全也可 selectinload 重新查一次）
