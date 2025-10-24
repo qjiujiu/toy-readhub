@@ -1,4 +1,4 @@
-from pydantic import BaseModel, conint, Field
+from pydantic import BaseModel, conint, Field, ConfigDict
 from typing import Optional
 from app.schemas.book import BookOut  # 假设你已经定义了 BookOut 用于输出图书信息
 
@@ -8,9 +8,9 @@ class BookInventoryCreate(BaseModel):
     quantity: int = Field(..., ge=0)  # 库存数量（必填，必须是非负整数）
                                       # Field 用于为 Pydantic 模型字段添加更多的验证规则。ge=0 表示字段值必须大于或等于 0。
                                       # ...：表示该字段是必填项
-    class Config:
-        orm_mode = True  # 支持从 ORM 模型转换为 Pydantic 模型
-
+    # class Config:
+    #     orm_mode = True  # 支持从 ORM 模型转换为 Pydantic 模型
+    model_config = ConfigDict(from_attributes=True)
 
 class BookInventoryOut(BaseModel):
     inv_id: int                       # 库存 ID
@@ -19,12 +19,13 @@ class BookInventoryOut(BaseModel):
     quantity: int                     # 当前库存数量
     book: BookOut                     # 关联的图书信息（嵌套 BookOut）
 
-    class Config:
-        orm_mode = True  # 支持从 ORM 模型转换为 Pydantic 模型
-
+    # class Config:
+    #     orm_mode = True  # 支持从 ORM 模型转换为 Pydantic 模型
+    model_config = ConfigDict(from_attributes=True)
 
 class BookInventoryUpdate(BaseModel):
     quantity: int = Field(..., ge=0)  # 库存数量（可以更新）
 
-    class Config:
-        orm_mode = True  # 支持从 ORM 模型转换为 Pydantic 模型
+    # class Config:
+    #     orm_mode = True  # 支持从 ORM 模型转换为 Pydantic 模型
+    model_config = ConfigDict(from_attributes=True)
