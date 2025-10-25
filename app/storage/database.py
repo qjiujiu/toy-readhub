@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.storage.user.SQLAlchemyUserRepository import SQLAlchemyUserRepository
 from app.storage.book.SQLAlchemyBookRepository import SQLAlchemyBookRepository
 from app.storage.book_inventory.SQLAlchemyBookinvRepository import SQLAlchemyBookinvRepository
+from app.storage.book_location.SQLAlchemyBooklocRepository import SQLAlchemyBookLocationRepository
 from fastapi import Depends
 
 # ======== 配置区 ========
@@ -66,3 +67,6 @@ def get_book_repo(db: Session = Depends(get_db)) -> SQLAlchemyBookRepository:
 
 def get_bookinv_repo(db: Session = Depends(get_db)) -> SQLAlchemyBookinvRepository:
     return SQLAlchemyBookinvRepository(db)
+
+def get_bookloc_repo(db: Session = Depends(get_db)) -> SQLAlchemyBookLocationRepository:
+    return SQLAlchemyBookLocationRepository(db)
