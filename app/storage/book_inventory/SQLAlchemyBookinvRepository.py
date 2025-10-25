@@ -15,7 +15,6 @@ class SQLAlchemyBookinvRepository(IBookInventoryRepository):
     def get_inventories_by_bid(self, book_id: int) -> List[dict]:
         invs = (
             self.db.query(BookInventory)
-            .options(selectinload(BookInventory.book))  # 预加载嵌套图书
             .filter(BookInventory.book_id == book_id)
             .order_by(BookInventory.warehouse_name.asc())  # 可选：按校区名排序
             .all()
@@ -27,9 +26,7 @@ class SQLAlchemyBookinvRepository(IBookInventoryRepository):
         name = (warehouse_name or "").strip()
         inv = (
             self.db.query(BookInventory)
-            .options(selectinload(BookInventory.book))  # 关键：加载嵌套对象
-            .filter(BookInventory.book_id == book_id,
-                    BookInventory.warehouse_name == name)
+            .filter(BookInventory.book_id == book_id, BookInventory.warehouse_name == name)
             .one_or_none()
         )
         if not inv:
@@ -41,9 +38,7 @@ class SQLAlchemyBookinvRepository(IBookInventoryRepository):
     def increment_quantity(self, book_id: int, warehouse_name: str, delta: int = 1) -> Optional[dict]:
         inv = (
             self.db.query(BookInventory)
-            .options(selectinload(BookInventory.book))
-            .filter(BookInventory.book_id == book_id,
-                    BookInventory.warehouse_name == warehouse_name.strip())
+            .filter(BookInventory.book_id == book_id, BookInventory.warehouse_name == warehouse_name.strip())
             .one_or_none()
         )
         if not inv:
