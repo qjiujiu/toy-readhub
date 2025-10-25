@@ -3,19 +3,23 @@ from app.schemas.book import BookCreate, BookOut, BatchBooksOut, BookUpdate
 from app.core.biz_response import BizResponse
 from app.service import book_svc
 from sqlalchemy.orm import Session
-from app.storage.database import get_book_repo
-from app.storage.database import get_bookinv_repo
+from app.storage.database import (
+    get_book_repo,
+    get_bookinv_repo,
+    get_bookloc_repo
+)
 from app.storage.book.book_interface import IBookRepository
 from app.storage.book_inventory.book_inventory_interface import IBookInventoryRepository
+from app.storage.book_location.book_location_interface import IBookLocationRepository
 from typing import List
 from sqlalchemy.exc import IntegrityError
 
 books_router = APIRouter(prefix="/books", tags=["books"])
 
 @books_router.post("/")  # 不要写 response_model
-def create_book(book: BookCreate, book_repo: IBookRepository = Depends(get_book_repo), inv_repo: IBookInventoryRepository = Depends(get_bookinv_repo)):
+def create_book(book: BookCreate, book_repo: IBookRepository = Depends(get_book_repo), inv_repo: IBookInventoryRepository = Depends(get_bookinv_repo), loc_repo: IBookLocationRepository = Depends(get_bookloc_repo)):
     try:
-        result = book_svc.create_book(book_repo=book_repo, inv_repo=inv_repo, book_data=book)
+        result = book_svc.create_book(book_repo=book_repo, inv_repo=inv_repo, loc_repo=loc_repo, book_data=book)
         return BizResponse(data=result)  # 统一外壳
     except ValueError as e:
         return BizResponse(data=None, msg=str(e), status_code=400)
@@ -28,18 +32,18 @@ def create_book(book: BookCreate, book_repo: IBookRepository = Depends(get_book_
 
 # 批量添加图书
 @books_router.post("/batch")
-def create_batch(payload: List[BookCreate], book_repo: IBookRepository = Depends(get_book_repo), inv_repo: IBookInventoryRepository = Depends(get_bookinv_repo)):
+def create_batch(payload: List[BookCreate], book_repo: IBookRepository = Depends(get_book_repo), inv_repo: IBookInventoryRepository = Depends(get_bookinv_repo), loc_repo: IBookLocationRepository = Depends(get_bookloc_repo)):
     try:
-        result = book_svc.create_batch_books(book_repo, inv_repo, payload)
+        result = book_svc.create_batch_books(book_repo, inv_repo, loc_repo, payload)
         # 约定：只要有成功项就 200；全失败可视情况返回 207/207 Multi-Status 或 400
         return BizResponse(data=result)
     except Exception as e:
         return BizResponse(data=None, msg=str(e), status_code=500)
 
 @books_router.get("/id/{bid}")
-def get_inventories_by_bid(bid: int, inv_repo: IBookInventoryRepository = Depends(get_bookinv_repo)):
+def get_inventories_by_bid(bid: int, loc_repo: IBookLocationRepository = Depends(get_bookloc_repo)):
     try:
-        items = book_svc.get_book_by_bid(inv_repo=inv_repo, bid=bid)  # List[dict]
+        items = book_svc.get_book_by_bid(loc_repo=loc_repo, bid=bid)  # List[dict]
         if not items:
             return BizResponse(data=[], msg="No books found with this book_id", status_code=404)
         return BizResponse(data=items)
@@ -48,9 +52,9 @@ def get_inventories_by_bid(bid: int, inv_repo: IBookInventoryRepository = Depend
 
 # 获取图书信息（根据ISBN查询）
 @books_router.get("/isbn/{isbn}")
-def get_book_by_isbn(isbn: str, book_repo: IBookRepository = Depends(get_book_repo), inv_repo: IBookInventoryRepository = Depends(get_bookinv_repo)):
+def get_book_by_isbn(isbn: str, book_repo: IBookRepository = Depends(get_book_repo), loc_repo: IBookLocationRepository = Depends(get_bookloc_repo)):
     try:
-        items = book_svc.get_book_by_isbn(book_repo, inv_repo, isbn)
+        items = book_svc.get_book_by_isbn(book_repo, loc_repo, isbn)
         if not items:
             return BizResponse(data=[], msg="No books found with this isbn", status_code=404)
         return BizResponse(data=items)
