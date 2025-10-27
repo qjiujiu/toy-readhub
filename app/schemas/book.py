@@ -38,13 +38,11 @@ class BookOut(BaseModel):
 
 # 更新图书的请求体
 class BookUpdate(BaseModel):
-    title: Optional[str]            # 书名（可更新）
-    author: Optional[str]           # 作者（可更新）
-    isbn: Optional[str]             # 国际标准书号（可更新）
-    abstract: Optional[str]         # 图书简介（可更新）
-    tags: Optional[str]             # 图书标签（可更新）
-
-    warehouse_name: Optional[str]   # 仓库名称(图书存放的校区)
+    title: Optional[str] = None            # 书名（可更新）
+    author: Optional[str] = None          # 作者（可更新）
+    isbn: Optional[str] = None             # 国际标准书号（可更新）
+    abstract: Optional[str] = None         # 图书简介（可更新）
+    tags: Optional[str] = None             # 图书标签（可更新）
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -52,6 +50,14 @@ class BookUpdate(BaseModel):
 class BatchBooksOut(BaseModel):
     total: int                # 总记录数
     count: int                # 当前返回的记录数
-    books: List[BookOut]      # 图书列表
+    book: List[BookOut]      # 图书列表
+    # 这里本应取名books，但是为了适配工具TagCategory.translate_tags工具，改为book
+
+    model_config = ConfigDict(from_attributes=True)
+
+class BookDeleteOut(BaseModel):
+    book: BookOut
+    deleted_locations: int
+    deleted_inventories: int
 
     model_config = ConfigDict(from_attributes=True)
