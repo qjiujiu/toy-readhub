@@ -64,6 +64,16 @@ class TagCategory(Enum):
                 # 出错时忽略（可选：logger.warning）
                 continue
         return data
+    
+    @classmethod
+    def translate_tag(cls, book: dict) -> dict:
+        """将单本图书的 tags 从字母转换为中文类别名"""
+        if book and book.get("tags"):
+            try:
+                book["tags"] = cls.to_name(book["tags"])
+            except Exception:
+                pass
+        return book
 
 class Book(Base):
     """ 图书数据库模型，用于表示每本书的基本信息。
