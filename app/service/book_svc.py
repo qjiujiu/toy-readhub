@@ -3,7 +3,8 @@ from app.schemas.book import (
     BookCreate,
     BookUpdate,
     BookOnlyCreate,
-    BookOut
+    BookOut,
+    BookDeleteOut
 )
 from app.storage.book.book_interface import IBookRepository  
 from app.storage.book_inventory.book_inventory_interface import IBookInventoryRepository
@@ -11,9 +12,11 @@ from app.storage.book_location.book_location_interface import IBookLocationRepos
 from app.schemas.book_inventory import (
     BookInventoryCreate
 )
-from app.schemas.book_location import BookLocationCreate
+from app.schemas.book_location import BookLocationCreate, BookLocationUpdate, BookDetailOut
 from app.models.book import TagCategory
 from app.core.logx import logger
+
+from app.core.exceptions import BookNotFound, LocationNotFound, UpdateFailed
 
 logger.is_debug(True)
 
@@ -62,6 +65,14 @@ def get_books_by_author(book_repo: IBookRepository, author: str) -> List[Dict]:
     books = book_repo.get_books_by_author(author)
     books = TagCategory.translate_tags(books, nested=False)
     return books
+
+# 批量查询图书（可分页）
+def get_batch_books(book_repo: IBookRepository, page: int = 0, page_size: int = 10) -> Dict:
+    batch_books = book_repo.get_batch_books(page, page_size)
+    # 对返回的每本书，转换tags为类别名称
+    batch_books = TagCategory.translate_tags(batch_books, nested=True)
+
+    return batch_books
 
 
 # 批量创建图书
@@ -117,10 +128,17 @@ def create_book(book_repo: IBookRepository, inv_repo: IBookInventoryRepository, 
         inv = inv_repo.get_by_bid_and_warehouse(book_id=book_id, warehouse_name=warehouse_name)
         if inv:
             # 3.2 已有库存 → 数量 +1
-            inv_repo.increment_quantity(book_id=book_id, warehouse_name=warehouse_name, delta=1)
+            book_inv = inv_repo.increment_quantity(book_id=book_id, warehouse_name=warehouse_name, delta=1)
             # 3.3 从book_location 获取插入的图书的完整信息
-            detail = loc_repo.get_by_bid_and_warehouse(book_id=book_id, warehouse_name=warehouse_name)
-            return detail
+            book_loc = loc_repo.get_by_bid_and_warehouse(book_id=book_id, warehouse_name=warehouse_name)
+            detail = BookDetailOut(
+                book = BookOut.model_validate(existing_book),
+                warehouse_name=book_loc["warehouse_name"],
+                area = book_loc["area"],
+                floor= book_loc["floor"],
+                quantity=book_inv["quantity"]
+            )
+            return detail.model_dump()
         else:
             # 3.3 无库存 → 新建库存 quantity=1，新建位置，并返回 BookDetailOut（包含 book和book_inventory 嵌套）
             inv_repo.create_inventory(
@@ -149,32 +167,67 @@ def create_book(book_repo: IBookRepository, inv_repo: IBookInventoryRepository, 
 
 
 
-
-
-
-
-# TODO:以下函数待完善
-
-
-# 批量查询图书（可分页）
-def get_batch_books(repo: IBookRepository, page: int = 0, page_size: int = 10) -> Dict:
-    batch_books = repo.get_batch_books(page, page_size)
-    # 对返回的每本书，转换tags为类别名称
-    for book in batch_books['books']:
-        book['tags'] = TagCategory.to_name(book['tags'])
-    return batch_books
-
-
-
-# 更新图书信息（通过 ISBN）
-def update_book_by_isbn(repo: IBookRepository, isbn: str, book_data: BookUpdate) -> Optional[Dict]:
-    updated_book = repo.update_book_by_isbn(isbn, book_data)
+# 更新图书的基本信息（通过 ISBN）
+def update_book_info(book_repo: IBookRepository, isbn: str, book_data: BookUpdate) -> Optional[Dict]:
+    updated_book = book_repo.update_book_info(isbn, book_data)
     if not updated_book:
         return None
+    updated_book = TagCategory.translate_tag(updated_book)
     return updated_book
 
 
+# 更新图书的位置信息（用户通过 isbn 和 warehouse查找更新，数据层通过 loc_id 查找更新）
+def update_book_loc(book_repo: IBookRepository, loc_repo: IBookLocationRepository, isbn: str, warehouse_name: str, loc_data: BookLocationUpdate) -> Optional[Dict]:
+    book_info = book_repo.get_book_by_isbn(isbn=isbn)
+    if not book_info:
+        raise BookNotFound(isbn)
+    book_loc = loc_repo.get_by_bid_and_warehouse(book_id=book_info["bid"], warehouse_name=warehouse_name)
+    if not book_loc:
+        # 同步给出该书当前所有有效馆名，供接口层直接返回提示
+        locs: List[dict] = loc_repo.get_locations_by_bid(book_id=book_info["bid"]) or []
+        candidates = sorted({l.get("warehouse_name") for l in locs if l.get("warehouse_name")})
+        raise LocationNotFound(isbn=isbn, warehouse_name=warehouse_name, candidates=candidates)
+    
+    updated_book_loc = loc_repo.update_location(loc_id=book_loc["loc_id"], loc_data=loc_data)
+    if not updated_book_loc:
+        raise UpdateFailed(loc_id=book_loc["loc_id"])
+
+    updated_book_loc = TagCategory.translate_tag(updated_book_loc)
+    return updated_book_loc
+
 # 删除图书（通过 ISBN）
-def delete_book_by_isbn(repo: IBookRepository, isbn: str) -> None:
-    book_info = repo.delete_book_by_isbn(isbn)
-    return book_info
+def delete_book_by_isbn(book_repo: IBookRepository, loc_repo: IBookLocationRepository, inv_repo: IBookInventoryRepository, isbn: str) -> Optional[Dict]:
+    """
+    业务层：按 ISBN 删除一本书基本信息及其关联的“位置”和“库存”。
+
+    删除顺序（避免外键冲突，兼容未声明 ON DELETE CASCADE 的情况）：
+      1) 先删位置 book_locations（全部）
+      2) 再删库存 book_inventory（全部）
+      3) 最后删图书 books
+    返回：删除摘要 dict；如果书不存在，返回 None
+    """
+    # 1) 查书
+    book = book_repo.get_book_by_isbn(isbn=isbn)  # -> dict 或 None（BookOut）
+    if not book:
+        return BookNotFound(isbn)
+
+    bid = book["bid"]
+
+    # 2) 删除位置（全部）
+    try:
+        deleted_locs = loc_repo.delete_all_by_book_id(bid)  # 返回已删除条数（int）
+    except Exception as e:
+        logger.exception("delete_all_by_book_id failed: %s", e)
+        raise
+
+    # 3) 删除库存（全部）
+    try:
+        deleted_invs = inv_repo.delete_all_by_book_id(bid)  # 返回删除条数（int）
+    except Exception as e:
+        logger.exception("delete_all_by_book_id (inventory) failed: %s", e)
+        raise 
+
+    # 4) 删除图书
+    deleted_book_snapshot = book_repo.delete_book_by_isbn(isbn)  # 返回 BookOut dict（你当前实现如此）
+
+    return BookDeleteOut(book=deleted_book_snapshot, deleted_locations=deleted_locs, deleted_inventories=deleted_invs).model_dump()
