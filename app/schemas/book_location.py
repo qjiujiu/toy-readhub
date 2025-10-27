@@ -30,9 +30,12 @@ class BookDetailOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# 通过bid和warehouse_name 定位图书，更新 area，floor
 class BookLocationUpdate(BaseModel):
-    warehouse_name: Optional[str]  # 仓库/馆名
-    area: Optional[str]            # 所在区域 
-    floor: Optional[str]           # 所在楼层 
-
+    # warehouse_name: Optional[str]           # 仓库名称
+    # 图书校区和图书库存量绑定，所以不允许更新校区信息
+    
+    area: Optional[str] = None              # 所在区域 
+    floor: Optional[str] = None             # 所在楼层 
+    
     model_config = ConfigDict(from_attributes=True)
