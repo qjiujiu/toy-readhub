@@ -59,7 +59,7 @@ class SQLAlchemyBookinvRepository(IBookInventoryRepository):
         self.db.refresh(inv)
         _ = inv.book  # 触发加载（若未加载）
         return BookInventoryOut.model_validate(inv).model_dump()
-
+    
     # 修改图书库存数量
     def update_inventory(self, book_id: int, inventory_data: BookInventoryUpdate) -> Optional[BookInventoryOut]:
         # 查找库存记录
@@ -77,14 +77,28 @@ class SQLAlchemyBookinvRepository(IBookInventoryRepository):
 
         return BookInventoryOut.model_validate(inventory).model_dump()  # 返回更新后的库存信息
 
-    # 删除图书库存信息
-    def delete_inventory(self, book_id: int) -> None:
-        # 查找库存记录
-        inventory = self.db.query(BookInventory).filter(BookInventory.book_id == book_id).first()
-        if not inventory:
-            raise ValueError(f"Inventory for book_id {book_id} not found.")  # 如果没有找到库存记录，抛出异常
-
+    # 批量删除库存：按书 ID（返回删除条数）
+    def delete_all_by_book_id(self, book_id: int) -> int:
+        rows = self.db.query(BookInventory).filter(BookInventory.book_id == book_id).all()
+        if not rows:
+            return 0
+        count = len(rows)
         with transaction(self.db):
-            self.db.delete(inventory)   # 删除库存记录
+            for r in rows:
+                self.db.delete(r)
+        return count
+    
+
+    # # 删除图书库存信息
+    # def delete_inventory(self, book_id: int) -> None:
+    #     # 查找库存记录
+    #     inventory = self.db.query(BookInventory).filter(BookInventory.book_id == book_id).first()
+    #     if not inventory:
+    #         raise ValueError(f"Inventory for book_id {book_id} not found.")  # 如果没有找到库存记录，抛出异常
+
+    #     with transaction(self.db):
+    #         self.db.delete(inventory)   # 删除库存记录
         
-        return BookInventoryOut.model_validate(inventory).model_dump()  # 返回更新后的库存信息
+    #     return BookInventoryOut.model_validate(inventory).model_dump()  # 返回更新后的库存信息
+    
+    
