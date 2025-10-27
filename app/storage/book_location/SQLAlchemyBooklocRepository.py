@@ -50,11 +50,6 @@ class SQLAlchemyBookLocationRepository(IBookLocationRepository):
         name = (warehouse_name or "").strip()
         row = (
             self.db.query(BookLocation)
-            # 预加载 book 与 inventory，避免后续再次触发 SQL
-            .options(
-                selectinload(BookLocation.book),
-                selectinload(BookLocation.inventory),
-            )
             .filter(
                 and_(
                     BookLocation.book_id == book_id,
@@ -65,14 +60,7 @@ class SQLAlchemyBookLocationRepository(IBookLocationRepository):
         )
         if not row:
             return None
-        detail = BookDetailOut(
-            book=BookOut.model_validate(row.book),
-            warehouse_name=row.warehouse_name,
-            area=row.area,
-            floor=row.floor,
-            quantity=row.inventory.quantity
-        )
-        return detail.model_dump()
+        return BookLocationOut.model_validate(row).model_dump()
 
     # 按 loc_id 获取
     def get_by_loc_id(self, loc_id: int) -> Optional[Dict]:
@@ -112,74 +100,19 @@ class SQLAlchemyBookLocationRepository(IBookLocationRepository):
             )
         return result.model_dump()
 
-    # 部分字段更新（仅更新传入且非 None 的字段；字段名需与列一致）
-    def patch_location(self, loc_id: int, **fields) -> Optional[Dict]:
-        row = self.db.query(BookLocation).filter(BookLocation.loc_id == loc_id).one_or_none()
-        if not row:
-            return None
-
-        # 仅对存在的列且值非 None 的项进行更新
-        updatable = {"warehouse_name", "area", "floor"}
-        changed = False
-        for k, v in fields.items():
-            if k in updatable and v is not None:
-                val = v.strip() if isinstance(v, str) else v
-                setattr(row, k, val)
-                changed = True
-
-        if changed:
-            with transaction(self.db):
-                self.db.add(row)
-            self.db.refresh(row)
-
-        return BookLocationOut.model_validate(row).model_dump()
-
-    # 整体更新（按请求体）
+    # 更新图书的位置信息（通过loc_id）
     def update_location(self, loc_id: int, loc_data: BookLocationUpdate) -> Optional[Dict]:
-        row = self.db.query(BookLocation).filter(BookLocation.loc_id == loc_id).one_or_none()
-        if not row:
+        location = self.db.query(BookLocation).filter(BookLocation.loc_id == loc_id).one_or_none()
+        if not location:
             return None
 
-        # 仅当传入值不为 None 时更新（避免覆盖为 None）
-        if loc_data.warehouse_name is not None:
-            row.warehouse_name = loc_data.warehouse_name.strip()
-        if loc_data.area is not None:
-            row.area = loc_data.area.strip() if loc_data.area else None
-        if loc_data.floor is not None:
-            row.floor = loc_data.floor.strip() if loc_data.floor else None
-
         with transaction(self.db):
-            self.db.add(row)
-        self.db.refresh(row)
-        _ = row.book
-        return BookLocationOut.model_validate(row).model_dump()
+            for field, value in loc_data.dict(exclude_unset=True).items():
+                setattr(location, field, value)
+            
+        self.db.refresh(location)
+        return BookLocationOut.model_validate(location).model_dump()
 
-    # 删除：按主键
-    def delete_by_loc_id(self, loc_id: int) -> None:
-        row = self.db.query(BookLocation).filter(BookLocation.loc_id == loc_id).one_or_none()
-        if not row:
-            raise ValueError(f"Location {loc_id} not found.")
-        with transaction(self.db):
-            self.db.delete(row)
-
-    # 删除：按 (book_id, warehouse_name)
-    def delete_by_bid_and_warehouse(self, book_id: int, warehouse_name: str) -> None:
-        name = (warehouse_name or "").strip()
-        rows = (
-            self.db.query(BookLocation)
-            .filter(
-                and_(
-                    BookLocation.book_id == book_id,
-                    BookLocation.warehouse_name == name,
-                )
-            )
-            .all()
-        )
-        if not rows:
-            raise ValueError(f"Location for book_id={book_id}, warehouse_name='{name}' not found.")
-        with transaction(self.db):
-            for r in rows:
-                self.db.delete(r)
 
     # 批量删除：按书ID（返回删除条数）
     def delete_all_by_book_id(self, book_id: int) -> int:
@@ -191,4 +124,33 @@ class SQLAlchemyBookLocationRepository(IBookLocationRepository):
             for r in rows:
                 self.db.delete(r)
         return count
+    
+
+
+    # # 删除：按主键
+    # def delete_by_loc_id(self, loc_id: int) -> None:
+    #     row = self.db.query(BookLocation).filter(BookLocation.loc_id == loc_id).one_or_none()
+    #     if not row:
+    #         raise ValueError(f"Location {loc_id} not found.")
+    #     with transaction(self.db):
+    #         self.db.delete(row)
+
+    # # 删除：按 (book_id, warehouse_name)
+    # def delete_by_bid_and_warehouse(self, book_id: int, warehouse_name: str) -> None:
+    #     name = (warehouse_name or "").strip()
+    #     rows = (
+    #         self.db.query(BookLocation)
+    #         .filter(
+    #             and_(
+    #                 BookLocation.book_id == book_id,
+    #                 BookLocation.warehouse_name == name,
+    #             )
+    #         )
+    #         .all()
+    #     )
+    #     if not rows:
+    #         raise ValueError(f"Location for book_id={book_id}, warehouse_name='{name}' not found.")
+    #     with transaction(self.db):
+    #         for r in rows:
+    #             self.db.delete(r)
 

@@ -25,10 +25,6 @@ class IBookLocationRepository(Protocol):
     def create_location(self, loc_data: BookLocationCreate) -> Dict:
         ...
 
-    # 部分字段更新（仅更新非 None 字段）
-    def patch_location(self, loc_id: int, **fields) -> Optional[Dict]:
-        ...
-
     # 通过 loc_id 按请求体整体更新（常用：area/floor/warehouse_name）
     def update_location(self, loc_id: int, loc_data: BookLocationUpdate) -> Optional[Dict]:
         ...
