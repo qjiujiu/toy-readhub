@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
-from app.schemas.book import BookCreate, BookOut, BatchBooksOut, BookUpdate
+from app.schemas.book import BookCreate, BookOut, BatchBooksOut, BookUpdate, BookDeleteOut
+from app.schemas.book_location import BookLocationOut, BookLocationUpdate
 from app.core.biz_response import BizResponse
 from app.service import book_svc
-from sqlalchemy.orm import Session
 from app.storage.database import (
     get_book_repo,
     get_bookinv_repo,
@@ -13,6 +13,9 @@ from app.storage.book_inventory.book_inventory_interface import IBookInventoryRe
 from app.storage.book_location.book_location_interface import IBookLocationRepository
 from typing import List
 from sqlalchemy.exc import IntegrityError
+from app.core.logx import logger
+
+from app.core.exceptions import BookNotFound, LocationNotFound, UpdateFailed
 
 books_router = APIRouter(prefix="/books", tags=["books"])
 
@@ -85,39 +88,61 @@ def get_books_by_author(author: str, book_repo: IBookRepository = Depends(get_bo
     except Exception as e:
         return BizResponse(data=[], msg=str(e), status_code=500)
 
-
-
-
-
-# TODO: 以下接口功能待完善
-
 # 获取图书信息（批量查询，支持分页）
 @books_router.get("/", response_model=BatchBooksOut)
-def get_books(page: int = 0, page_size: int = 10, repo: IBookRepository = Depends(get_book_repo)):
+def get_books(page: int = 0, page_size: int = 10, book_repo: IBookRepository = Depends(get_book_repo)):
     try:
-        result = book_svc.get_batch_books(repo, page, page_size)
+        result = book_svc.get_batch_books(book_repo, page, page_size)
         return BizResponse(data=result)
     except Exception as e:
         return BizResponse(data=list(), msg=str(e), status_code=500)
 
 
-# 更新图书信息
-@books_router.put("/{bid}", response_model=BookOut)
-def update_book(bid: int, book_update: BookUpdate, repo: IBookRepository = Depends(get_book_repo)):
+# 更新图书基本信息
+@books_router.put("/info/{isbn}", response_model=BookOut)
+def update_book_info(isbn: str, book_update: BookUpdate, book_repo: IBookRepository = Depends(get_book_repo)):
     try:
-        updated_book = book_svc.update_book(repo, bid, book_update)
+        updated_book = book_svc.update_book_info(book_repo=book_repo, isbn=isbn, book_data=book_update)
         if updated_book:
             return BizResponse(data=updated_book)
         else:
-            return BizResponse(data=None, msg=f"Update failed: {bid} not found", status_code=404)
+            return BizResponse(data=None, msg=f"Update failed: ISBN:{isbn} not found", status_code=404)
+    except Exception as e:
+        return BizResponse(data=None, msg=str(e), status_code=500)
+
+# 更新图书位置信息 (传入isbn和warehouse_name)
+@books_router.put("/loc/{isbn}/{warehouse_name}", response_model = BookLocationOut)
+def update_book_loc(isbn: str, warehouse_name: str, loc_update: BookLocationUpdate, book_repo: IBookRepository = Depends(get_book_repo), loc_repo: IBookLocationRepository = Depends(get_bookloc_repo)):
+    try:
+        updated_book = book_svc.update_book_loc(book_repo=book_repo, loc_repo=loc_repo, isbn=isbn, warehouse_name=warehouse_name, loc_data=loc_update)
+        return BizResponse(data=updated_book)
+    except BookNotFound as e:
+        return BizResponse(data=None, msg=str(e), status_code=404)
+    except LocationNotFound as e:
+        hint = f"Valid warehouse_name(s): {', '.join(e.candidates)}" if e.candidates else "No locations recorded for this book."
+        return BizResponse(
+            data=None,
+            msg=f"{str(e)}. {hint}",
+            status_code=404
+        )
+    except UpdateFailed as e:
+        return BizResponse(data=None, msg=str(e), status_code=500)
     except Exception as e:
         return BizResponse(data=None, msg=str(e), status_code=500)
 
 # 删除图书
-@books_router.delete("/{bid}", response_model=BookOut)
-def delete_book(bid: int, repo: IBookRepository = Depends(get_book_repo)):
+@books_router.delete("/isbn/{isbn}")
+def delete_book(isbn: str, book_repo: IBookRepository = Depends(get_book_repo), loc_repo: IBookLocationRepository = Depends(get_bookloc_repo), inv_repo: IBookInventoryRepository = Depends(get_bookinv_repo)):
     try:
-        book_svc.delete_book(repo, bid)
-        return BizResponse(data=True)
+        result = book_svc.delete_book_by_isbn(
+            book_repo=book_repo,
+            loc_repo=loc_repo,
+            inv_repo=inv_repo,
+            isbn=isbn,
+        )
+        return BizResponse(data=result)
+    except BookNotFound as e:
+        return BizResponse(data=None, msg=str(e), status_code=404)
+
     except Exception as e:
-        return BizResponse(data=False, msg=str(e), status_code=500)
+        return BizResponse(data=None, msg=str(e), status_code=500)
