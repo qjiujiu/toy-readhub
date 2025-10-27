@@ -1,9 +1,9 @@
 from sqlalchemy.orm import Session
 from app.models.book import Book
 from app.schemas.book import BookCreate, BookUpdate, BookOut, BatchBooksOut, BookOnlyCreate
+from app.schemas.book_location import BookDetailOut
 from app.storage.book.book_interface import IBookRepository
 from typing import Optional, List, Dict, Union
-from contextlib import contextmanager
 from app.core.logx import logger
 from app.core.db import transaction
 
@@ -17,7 +17,7 @@ class SQLAlchemyBookRepository(IBookRepository):
         skip = page * page_size
         books = self.db.query(Book).offset(skip).limit(page_size).all()
         total = self.db.query(Book).count()
-        return BatchBooksOut(total=total, count=len(books), books=books).model_dump()
+        return BatchBooksOut(total=total, count=len(books), book=books).model_dump()
 
     # 根据主键 bid 获取图书
     def get_book_by_bid(self, bid: int) -> Optional[BookOut]:
@@ -52,11 +52,11 @@ class SQLAlchemyBookRepository(IBookRepository):
         self.db.refresh(book)
         return BookOut.model_validate(book).model_dump()
 
-    # 更新图书信息（通过 ISBN）
-    def update_book_by_isbn(self, isbn: str, book_data: BookUpdate) -> Optional[BookOut]:
+    # 更新图书基本信息（通过 ISBN）
+    def update_book_info(self, isbn: str, book_data: BookUpdate) -> Optional[BookOut]:
         book = self.db.query(Book).filter(Book.isbn == isbn).first()
         if not book:
-            return None
+            raise ValueError(f"Book with ISBN {isbn} not found.")
         
         with transaction(self.db):  # 使用事务管理器
             # 更新图书的字段
