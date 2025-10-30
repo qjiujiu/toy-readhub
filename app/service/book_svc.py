@@ -128,7 +128,7 @@ def create_book(book_repo: IBookRepository, inv_repo: IBookInventoryRepository, 
         inv = inv_repo.get_by_bid_and_warehouse(book_id=book_id, warehouse_name=warehouse_name)
         if inv:
             # 3.2 已有库存 → 数量 +1
-            book_inv = inv_repo.increment_quantity(book_id=book_id, warehouse_name=warehouse_name, delta=1)
+            book_inv = inv_repo.update_inventory(book_id=book_id, warehouse_name=warehouse_name, delta=1)
             # 3.3 从book_location 获取插入的图书的完整信息
             book_loc = loc_repo.get_by_bid_and_warehouse(book_id=book_id, warehouse_name=warehouse_name)
             detail = BookDetailOut(

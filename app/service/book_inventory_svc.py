@@ -21,12 +21,12 @@ def create_inventory(repo: IBookInventoryRepository, inventory_data: BookInvento
     return new_inventory  # 返回新创建的库存信息
 
 
-# 修改图书库存数量
-def update_inventory(repo: IBookInventoryRepository, book_id: int, inventory_data: BookInventoryUpdate) -> Optional[Dict]:
-    updated_inventory = repo.update_inventory(book_id, inventory_data)
-    if not updated_inventory:
-        return None
-    return updated_inventory  # 返回更新后的库存信息
+# # 修改图书库存数量
+# def update_inventory(repo: IBookInventoryRepository, book_id: int, inventory_data: BookInventoryUpdate) -> Optional[Dict]:
+#     updated_inventory = repo.update_inventory(book_id, inventory_data)
+#     if not updated_inventory:
+#         return None
+#     return updated_inventory  # 返回更新后的库存信息
 
 
 # 删除图书库存信息
