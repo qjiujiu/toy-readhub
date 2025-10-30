@@ -21,7 +21,6 @@ class User(Base):
 
     uid = Column(Integer, primary_key=True, autoincrement=True)         # 系统主键 ID
     
-    
     name = Column(String(100), nullable=False)                          # 姓名
     student_id = Column(String(20), unique=True, nullable=False)        # 学号（唯一）
     email = Column(String(50), nullable=True)                           # 邮箱（可为空）
@@ -29,3 +28,6 @@ class User(Base):
 
     # 反向引用：该用户的所有借阅订单
     orders = relationship("Order", back_populates="user")
+    # 在 User 模型中加入：
+    restriction = relationship("UserRestriction", back_populates="user", uselist=False, cascade="all, delete-orphan")
+
