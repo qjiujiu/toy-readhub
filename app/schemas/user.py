@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, Field
 from typing import Optional, List, Dict
 
 class UserOut(BaseModel):
@@ -33,4 +33,6 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
 
+class BatchDeleteRequest(BaseModel):
+    student_ids: List[str] = Field(..., description="要删除的学生学号列表")
 
