@@ -35,7 +35,7 @@ class SQLAlchemyBookinvRepository(IBookInventoryRepository):
 
 
     # 根据图书ID和仓库名称增加库存数量（默认 +1）
-    def increment_quantity(self, book_id: int, warehouse_name: str, delta: int = 1) -> Optional[dict]:
+    def update_inventory(self, book_id: int, warehouse_name: str, delta: int = 1) -> Optional[dict]:
         inv = (
             self.db.query(BookInventory)
             .filter(BookInventory.book_id == book_id, BookInventory.warehouse_name == warehouse_name.strip())
@@ -60,22 +60,7 @@ class SQLAlchemyBookinvRepository(IBookInventoryRepository):
         _ = inv.book  # 触发加载（若未加载）
         return BookInventoryOut.model_validate(inv).model_dump()
     
-    # 修改图书库存数量
-    def update_inventory(self, book_id: int, inventory_data: BookInventoryUpdate) -> Optional[BookInventoryOut]:
-        # 查找库存记录
-        inventory = self.db.query(BookInventory).filter(BookInventory.book_id == book_id).first()
-        if not inventory:
-            return None  # 如果没有找到库存信息，返回 None
-        
-        # 使用事务管理器，确保库存更新是原子操作
-        with transaction(self.db):  # 使用上下文管理器确保事务原子性
-            # 更新库存数量
-            if inventory_data.quantity is not None:
-                inventory.quantity = inventory_data.quantity
-
-        self.db.refresh(inventory)
-
-        return BookInventoryOut.model_validate(inventory).model_dump()  # 返回更新后的库存信息
+    
 
     # 批量删除库存：按书 ID（返回删除条数）
     def delete_all_by_book_id(self, book_id: int) -> int:
@@ -88,8 +73,9 @@ class SQLAlchemyBookinvRepository(IBookInventoryRepository):
                 self.db.delete(r)
         return count
     
-
-    # # 删除图书库存信息
+    
+    # 业务层删除图书时，只需要调用批量删除库存的方法
+    # # 删除图书库存信息，
     # def delete_inventory(self, book_id: int) -> None:
     #     # 查找库存记录
     #     inventory = self.db.query(BookInventory).filter(BookInventory.book_id == book_id).first()
