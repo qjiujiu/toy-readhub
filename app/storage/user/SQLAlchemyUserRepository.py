@@ -4,8 +4,9 @@ from app.schemas.user import UserCreate, UserUpdate, UserOut, BatchUsersOut
 from app.storage.user.user_interface import IUserRepository
 from typing import Optional, List, Dict, Union
 from app.core.db import transaction
-
-
+from app.core.logx import logger
+from fastapi import HTTPException, status
+from app.core.exceptions import StudentIDAlreadyExists, FieldRequiredError
 # 这是 PySQL+SQLAlchemy 实现的用户仓库(业务逻辑传入的参数是一个 IUserRepository 类型，而不是具体的子类)
 # 因而可以很方便地替换为其他子类实现，比如基于 PGSQL、MongoDB 用户仓库，或是换成 MySQL 其它三方库, e.g. SQLModel 实现
 class SQLAlchemyUserRepository(IUserRepository):
@@ -37,6 +38,12 @@ class SQLAlchemyUserRepository(IUserRepository):
         return BatchUsersOut(total=total, count=len(users), users=users).model_dump()
 
     def create_user(self, user_data: UserCreate) -> UserOut:
+        # 检查学号是否已存在
+        existing_user = self.db.query(User).filter(User.student_id == user_data.student_id).first()
+        if existing_user:
+            # 如果学号已存在，抛出 StudentIDAlreadyExists 异常
+            raise StudentIDAlreadyExists(user_data.student_id)
+        
         user = User(**user_data.dict())
 
         # 使用事务管理器来将添加新用户到数据库
@@ -81,3 +88,41 @@ class SQLAlchemyUserRepository(IUserRepository):
             self.db.delete(user)  # 删除用户
 
         return UserOut.model_validate(user).model_dump()
+    
+    # 批量删除用户：按 student_id 列表
+    def delete_batch_users(self, student_ids: List[str]) -> Dict:
+        if not student_ids:
+            raise ValueError("student_ids list cannot be empty.")
+        # logger.debug("RAW student_ids: %s", [repr(x) for x in student_ids])
+        # 查询所有待删除用户
+        users = (self.db.query(User).filter(User.student_id.in_(student_ids)).all())
+        # 检查是否有缺失的 student_id
+        found_ids = {u.student_id for u in users}
+        # logger.debug("DB found_ids: %s", [repr(x) for x in found_ids])
+        missing_ids = [sid for sid in student_ids if sid not in found_ids]
+
+        if missing_ids:
+            # 如果有不存在的学号，直接报错
+            raise ValueError(
+                f"The following student_ids were not found in database: {', '.join(missing_ids)}"
+            )
+
+        total = len(student_ids)
+        count = len(users)
+
+        # 预生成返回快照（删除后不能再 refresh）
+        users_snapshot = [UserOut.model_validate(u).model_dump() for u in users]
+
+        # 批量删除
+        with transaction(self.db):
+            for u in users:
+                self.db.delete(u)
+
+        # 返回结构体
+        result = BatchUsersOut(
+            total=total,
+            count=count,
+            users=users_snapshot
+        )
+        return result
+    

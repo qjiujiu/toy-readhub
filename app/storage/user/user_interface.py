@@ -1,5 +1,5 @@
 from typing import Protocol, Optional, List, Union, Dict
-from app.schemas.user import UserCreate, UserUpdate, UserOut
+from app.schemas.user import UserCreate, UserUpdate, UserOut, BatchUsersOut
 
 # 这是一个接口协议(也可以使用Python ABC抽象基类实现, 此处使用Protocol会更简洁)
 # 使用 Protocol 定义接口时，不需要像 ABC 一样创建一个类继承树，子类不需要继承协议，而只要实现协议中的方法即可
@@ -25,4 +25,7 @@ class IUserRepository(Protocol):
         ...
     
     def delete_user(self, student_id: str) -> None: 
+        ...
+    
+    def delete_batch_users(self, student_ids: List[str]) -> Optional[BatchUsersOut]:
         ...
