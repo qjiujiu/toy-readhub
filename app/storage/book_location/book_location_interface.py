@@ -9,8 +9,16 @@ from app.schemas.book_location import (
 class IBookLocationRepository(Protocol):
     """图书存储位置表（book_locations）数据访问接口协议"""
 
-    # 按图书ID获取该书的所有位置记录（可按仓库名排序）
-    def get_locations_by_bid(self, book_id: int) -> List[Dict]:
+    # 按图书ID获取该书的唯一位置的详细记录
+    def get_detail_location_by_bid(self, book_id: int) -> Dict:  # BookDetailOut
+        ...
+    
+    # 按图书ID获取该书的唯一位置信息
+    def get_location_by_bid(self, book_id: int) ->Dict:   # BookLocationOut
+        ...
+
+    # 按 ISBN 获取该书的所有位置
+    def get_locations_by_isbn(self, isbn: str) ->List[Dict]:
         ...
 
     # 按 (book_id, warehouse_name) 获取唯一位置记录
@@ -33,10 +41,6 @@ class IBookLocationRepository(Protocol):
     def delete_by_loc_id(self, loc_id: int) -> None:
         ...
 
-    # 删除：按 (book_id, warehouse_name)
-    def delete_by_bid_and_warehouse(self, book_id: int, warehouse_name: str) -> None:
-        ...
-
     # 批量删除：按 book_id
-    def delete_all_by_book_id(self, book_id: int) -> int:
+    def delete_by_bid(self, book_id: int) -> int:
         ...
