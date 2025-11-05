@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, Index
 from sqlalchemy.orm import relationship
 from app.models.base import Base
 from typing import List, Dict, Any
@@ -82,21 +82,26 @@ class Book(Base):
             bid INT PRIMARY KEY AUTO_INCREMENT,
             title VARCHAR(255) NOT NULL,
             author VARCHAR(255) NOT NULL,
-            isbn VARCHAR(20) NOT NULL UNIQUE,
+            isbn VARCHAR(20) NOT NULL,
             abstract TEXT,
             tags VARCHAR(255)
         );
+        -- 建议：为查询效率添加普通索引
+        ALTER TABLE books ADD INDEX idx_books_isbn (isbn);
     """
     __tablename__ = "books"
 
-    bid = Column(Integer, primary_key=True, autoincrement=True)  # 图书 ID，主键，自增
-    title = Column(String(255), nullable=False)                  # 书名（必填）
-    author = Column(String(255), nullable=False)                 # 作者（必填）
-    isbn = Column(String(20), unique=True, nullable=False)       # 国际标准书号，唯一（必填）
-    abstract = Column(Text, nullable=True)                       # 图书简介（可为空）
-
-    tags = Column(String(255), nullable=True)                    # 图书标签（多个标签用逗号分隔，例如：文学,历史,科幻）
+    bid = Column(Integer, primary_key=True, autoincrement=True)   # 图书 ID，主键，自增
+    title = Column(String(255), nullable=False)                   # 书名（必填）
+    author = Column(String(255), nullable=False)                  # 作者（必填）
+    isbn = Column(String(20), nullable=False, index=True)         # 国际标准书号（可重复；普通索引）
+    abstract = Column(Text, nullable=True)                        # 图书简介（可为空）
+    tags = Column(String(255), nullable=True)                     # 图书标签
 
     orders = relationship("Order", back_populates="book")
-    locations = relationship("BookLocation", back_populates="book", cascade="all, delete-orphan")
-    # cascade="all, delete-orphan" 删除 Book 时，自动删除其关联的 BookLocation。
+    locations = relationship(
+        "BookLocation",
+        back_populates="book",
+        cascade="all, delete-orphan",
+        foreign_keys="BookLocation.book_id",   # 明确通过 book_id 这条外键
+    )
