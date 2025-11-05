@@ -1,5 +1,7 @@
 from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
+from app.schemas.book_inventory import BookInventoryOut
+from app.schemas.book_location import BookLocationOut
 
 # 创建图书的请求体
 class BookCreate(BaseModel):
@@ -36,6 +38,16 @@ class BookOut(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
+class BookDetailOut(BaseModel):
+    book: BookOut                        # 关联的图书信息（嵌套 BookOut）
+    warehouse_name: str                  # 仓库/馆名
+    area: Optional[str]                  # 所在区域
+    floor: Optional[str]                 # 所在楼层
+    quantity: int                        # 该书库存量
+
+    model_config = ConfigDict(from_attributes=True)
+
 # 更新图书的请求体
 class BookUpdate(BaseModel):
     title: Optional[str] = None            # 书名（可更新）
@@ -44,7 +56,8 @@ class BookUpdate(BaseModel):
     abstract: Optional[str] = None         # 图书简介（可更新）
     tags: Optional[str] = None             # 图书标签（可更新）
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+    # extra="forbid" 禁止传入额外字段
 
 # 返回批量图书信息的响应体
 class BatchBooksOut(BaseModel):
@@ -57,7 +70,7 @@ class BatchBooksOut(BaseModel):
 
 class BookDeleteOut(BaseModel):
     book: BookOut
-    deleted_locations: int
-    deleted_inventories: int
+    deleted_locations: BookLocationOut
+    updated_inventory: BookInventoryOut
 
     model_config = ConfigDict(from_attributes=True)
