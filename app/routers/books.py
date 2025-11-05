@@ -55,12 +55,30 @@ def get_inventories_by_bid(bid: int, loc_repo: IBookLocationRepository = Depends
 
 # 获取图书信息（根据ISBN查询）
 @books_router.get("/isbn/{isbn}")
-def get_book_by_isbn(isbn: str, book_repo: IBookRepository = Depends(get_book_repo), loc_repo: IBookLocationRepository = Depends(get_bookloc_repo)):
+def get_book_by_isbn(isbn: str, book_repo: IBookRepository = Depends(get_book_repo)):
     try:
-        items = book_svc.get_book_by_isbn(book_repo, loc_repo, isbn)
+        items = book_svc.get_book_by_isbn(book_repo, isbn)
         if not items:
             return BizResponse(data=[], msg="No books found with this isbn", status_code=404)
         return BizResponse(data=items)
+    except Exception as e:
+        return BizResponse(data=None, msg=str(e), status_code=500)
+
+# 获取图书信息（通过 ISBN 和 warehouse_name）
+@books_router.get("/loc/{isbn}/{warehouse_name}")
+def get_book_by_isbn_wn(isbn: str, warehouse_name: str, book_repo: IBookRepository = Depends(get_book_repo), loc_repo: IBookLocationRepository = Depends(get_bookloc_repo)):
+    try:
+        items = book_svc.get_book_by_isbn_wn(book_repo=book_repo, loc_repo=loc_repo, isbn=isbn, warehouse_name=warehouse_name)
+        return BizResponse(data=items)
+    except BookNotFound as e:
+        return BizResponse(data=None, msg=str(e), status_code=404)
+    except LocationNotFound as e:
+        hint = f"Valid warehouse_name(s): {', '.join(e.candidates)}" if e.candidates else "No locations recorded for this book."
+        return BizResponse(
+            data=None,
+            msg=f"{str(e)}. {hint}",
+            status_code=404
+        )
     except Exception as e:
         return BizResponse(data=None, msg=str(e), status_code=500)
 
@@ -99,50 +117,42 @@ def get_books(page: int = 0, page_size: int = 10, book_repo: IBookRepository = D
 
 
 # 更新图书基本信息
-@books_router.put("/info/{isbn}", response_model=BookOut)
-def update_book_info(isbn: str, book_update: BookUpdate, book_repo: IBookRepository = Depends(get_book_repo)):
+@books_router.put("/info/{bid}", response_model=BookOut)
+def update_book_info(bid: int, book_update: BookUpdate, book_repo: IBookRepository = Depends(get_book_repo)):
     try:
-        updated_book = book_svc.update_book_info(book_repo=book_repo, isbn=isbn, book_data=book_update)
+        updated_book = book_svc.update_book_info(book_repo=book_repo, bid=bid, book_data=book_update)
         if updated_book:
             return BizResponse(data=updated_book)
         else:
-            return BizResponse(data=None, msg=f"Update failed: ISBN:{isbn} not found", status_code=404)
+            return BizResponse(data=None, msg=f"Update failed: bid:{bid} not found", status_code=404)
     except Exception as e:
         return BizResponse(data=None, msg=str(e), status_code=500)
 
-# 更新图书位置信息 (传入isbn和warehouse_name)
-@books_router.put("/loc/{isbn}/{warehouse_name}", response_model = BookLocationOut)
-def update_book_loc(isbn: str, warehouse_name: str, loc_update: BookLocationUpdate, book_repo: IBookRepository = Depends(get_book_repo), loc_repo: IBookLocationRepository = Depends(get_bookloc_repo)):
+# 更新图书位置信息 (传入bid)
+@books_router.put("/loc/{bid}", response_model = BookLocationOut)
+def update_book_loc(bid: int, loc_update: BookLocationUpdate, loc_repo: IBookLocationRepository = Depends(get_bookloc_repo)):
     try:
-        updated_book = book_svc.update_book_loc(book_repo=book_repo, loc_repo=loc_repo, isbn=isbn, warehouse_name=warehouse_name, loc_data=loc_update)
+        updated_book = book_svc.update_book_loc(loc_repo=loc_repo, bid=bid, loc_data=loc_update)
         return BizResponse(data=updated_book)
     except BookNotFound as e:
         return BizResponse(data=None, msg=str(e), status_code=404)
-    except LocationNotFound as e:
-        hint = f"Valid warehouse_name(s): {', '.join(e.candidates)}" if e.candidates else "No locations recorded for this book."
-        return BizResponse(
-            data=None,
-            msg=f"{str(e)}. {hint}",
-            status_code=404
-        )
     except UpdateFailed as e:
         return BizResponse(data=None, msg=str(e), status_code=500)
     except Exception as e:
         return BizResponse(data=None, msg=str(e), status_code=500)
 
 # 删除图书
-@books_router.delete("/isbn/{isbn}")
-def delete_book(isbn: str, book_repo: IBookRepository = Depends(get_book_repo), loc_repo: IBookLocationRepository = Depends(get_bookloc_repo), inv_repo: IBookInventoryRepository = Depends(get_bookinv_repo)):
+@books_router.delete("/id/{bid}")
+def delete_book(bid: int, book_repo: IBookRepository = Depends(get_book_repo), loc_repo: IBookLocationRepository = Depends(get_bookloc_repo), inv_repo: IBookInventoryRepository = Depends(get_bookinv_repo)):
     try:
-        result = book_svc.delete_book_by_isbn(
+        result = book_svc.delete_book_by_bid(
             book_repo=book_repo,
             loc_repo=loc_repo,
             inv_repo=inv_repo,
-            isbn=isbn,
+            bid=bid,
         )
         return BizResponse(data=result)
     except BookNotFound as e:
         return BizResponse(data=None, msg=str(e), status_code=404)
-
     except Exception as e:
         return BizResponse(data=None, msg=str(e), status_code=500)
