@@ -89,7 +89,7 @@ def get_orders_by_sid(user_repo:IUserRepository, order_repo: IOrderRepository, s
 def get_order_by_isbn(book_repo: IBookRepository, order_repo: IOrderRepository, isbn: str, page: int = 0, page_size: int = 10) -> List[Dict]:
     book_info = book_repo.get_book_by_isbn(isbn=isbn)
     if not book_info:
-        raise BookNotFound(isbn)
+        raise BookNotFound(entity="isbn", identifier=isbn)
     orders = order_repo.get_order_by_bid(book_id=book_info["bid"], page=page, page_size=page_size)
     if not orders:
         raise OrderNotFound(entity="isbn", identifier=isbn)
