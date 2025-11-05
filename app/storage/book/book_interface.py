@@ -35,6 +35,6 @@ class IBookRepository(Protocol):
     def update_book_by_isbn(self, isbn: str, book_data: BookUpdate) -> Optional[BookOut]:
         ...
 
-    # 删除图书（通过 ISBN）
-    def delete_book_by_isbn(self, isbn: str) -> None:
+    # 删除图书（通过 bid）
+    def delete_book_by_bid(self, bid: int) -> None:
         ...
