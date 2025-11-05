@@ -81,6 +81,5 @@ class SQLAlchemyBookRepository(IBookRepository):
         
         with transaction(self.db):  # 使用事务管理器
             self.db.delete(book)  # 删除图书
-        logger.debug("ok")
         return BookOut.model_validate(book).model_dump()
         
