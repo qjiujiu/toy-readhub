@@ -1,9 +1,6 @@
 # domain_exceptions.py
 from fastapi import HTTPException, status
-class BookNotFound(Exception):
-    def __init__(self, isbn: str):
-        super().__init__(f"ISBN '{isbn}' not found")
-        self.isbn = isbn
+
 
 class LocationNotFound(Exception):
     def __init__(self, isbn: str, warehouse_name: str, candidates: list[str] | None = None):
@@ -39,6 +36,12 @@ class StudentNotFound(Exception):
         self.detail = f"No {entity} found with identifier: {identifier}"
 
 class OrderNotFound(HTTPException):
+    def __init__(self, entity: str, identifier: str):
+        self.status_code = 404
+        self.detail = f"No {entity} found with identifier: {identifier}"
+
+
+class BookNotFound(Exception):
     def __init__(self, entity: str, identifier: str):
         self.status_code = 404
         self.detail = f"No {entity} found with identifier: {identifier}"
