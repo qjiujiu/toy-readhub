@@ -1,6 +1,6 @@
 # 借阅订单, 需要拥有一个唯一单号，当用户归还之后会产生归还单号
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, DateTime, func
-from sqlalchemy.orm import relationship, validates
+from sqlalchemy.orm import relationship
 from app.models.base import Base
 from datetime import datetime, timedelta
 
@@ -16,7 +16,8 @@ class Order(Base):
         warehouse_name VARCHAR(100) NOT NULL,     			 -- 所借书所在图书馆/仓库
         status VARCHAR(20) NOT NULL DEFAULT 'borrowed',      -- 借阅状态
         borrow_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, -- 自动填充当前时间
-        return_time DATETIME                    		     -- 归还时间（可为空）
+        return_time DATETIME,                    		     -- 预期归还时间（可为空）
+        actual_return_time DATETIME                          -- 用户实际归还时间（可为空）
     );
 
     ALTER TABLE orders
@@ -36,8 +37,9 @@ class Order(Base):
     status = Column(String(20), nullable=False, default="borrowed")         # 用 VARCHAR 存储状态，默认 'borrowed'
 
     borrow_time = Column(DateTime, nullable=False, server_default=func.now())  # 借书时间
-    return_time = Column(DateTime, nullable=True)                              # 归还时间（可为空）
-    
+    return_time = Column(DateTime, nullable=True)                              # 预计归还时间（可为空）
+    actual_return_time = Column(DateTime, nullable=True)                       # 用户实际归还时间（可为空）
+
     # 关联到 Book 和 User
     book = relationship("Book", back_populates="orders")
     user = relationship("User", back_populates="orders")
