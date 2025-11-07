@@ -32,7 +32,8 @@ class OrderOut(BaseModel):
     warehouse_name: str          # 所借书所在图书馆/仓库
     status: OrderStatus          # 借阅状态
     borrow_time: datetime        # 借书时间
-    return_time: Optional[datetime]  # 归还时间（可为空）
+    return_time: Optional[datetime]              # 预期归还时间（可为空）
+    actual_return_time:Optional[datetime] = None # 实际归还时间（可为空） 
 
     # 嵌套的书籍和用户信息
     book: BookOut                # 图书信息（嵌套BookOut）
@@ -48,8 +49,8 @@ class OrderOut(BaseModel):
 
 # 更新借阅订单的请求体
 class OrderUpdate(BaseModel):
-    status: Optional[OrderStatus]    # 更新借阅状态（可选）
-    return_time: Optional[datetime]  # 归还时间（可选）
+    status: Optional[OrderStatus] = None           # 更新借阅状态（可选）
+    actual_return_time: Optional[datetime] = None  # 实际归还时间（可选）
 
     model_config = ConfigDict(from_attributes=True)
 
