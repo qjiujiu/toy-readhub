@@ -2,12 +2,13 @@ from app.schemas.user import (
     UserCreate, 
     UserUpdate,
     UserOut,
-    BatchUsersOut
+    BatchUsersOut,
+    BatchDeleteRequest
 )
-from app.schemas.user_restrictions import UserRestrictionCreate
+from app.schemas.user_credit import UserCreditCreate
 from typing import Optional, Dict, List
 from app.storage.user.user_interface import IUserRepository
-from app.storage.user_restrictions.user_restrictions_interface import IUserRestrictionsRepository
+from app.storage.user_credit.user_credit_interface import IUserCreditRepository
 from app.core.exceptions import StudentIDAlreadyExists, FieldRequiredError, StudentNotFound
 from app.core.logx import logger
 
@@ -32,7 +33,7 @@ def get_user_by_student_id(repo: IUserRepository,  student_id: str, to_dict: boo
 
 
 # 批量创建学生
-def create_batch_users(user_repo: IUserRepository, res_repo: IUserRestrictionsRepository, users: List[UserCreate]) -> Dict:
+def create_batch_users(user_repo: IUserRepository, res_repo: IUserCreditRepository, users: List[UserCreate]) -> Dict:
 
     new_users = user_repo.create_batch(users)
     restrictions_failed: List[Dict] = []
@@ -43,8 +44,8 @@ def create_batch_users(user_repo: IUserRepository, res_repo: IUserRestrictionsRe
             restrictions_failed.append({"uid": None, "error": "Missing uid in created_users item"})
             continue
         try:
-            # 只传 user_id，其余默认：is_restricted=False, restricted_until=None, reason=None
-            res_repo.create(UserRestrictionCreate(user_id=uid))
+            # 只传 user_id，其余字段填入默认值
+            res_repo.create(UserCreditCreate(user_id=uid))
         except ValueError as e:
             # 幂等处理：如果已存在限制，就跳过
             msg = str(e)
@@ -58,7 +59,7 @@ def create_batch_users(user_repo: IUserRepository, res_repo: IUserRestrictionsRe
 
 
 # 创建学生
-def create_user(user_repo: IUserRepository, res_repo: IUserRestrictionsRepository, user_data: UserCreate) -> Dict:
+def create_user(user_repo: IUserRepository, res_repo: IUserCreditRepository, user_data: UserCreate) -> Dict:
     
     # TODO 下面raise可删，不会起作用，数据库会帮忙检查必填字段是否已填入
      
@@ -71,11 +72,11 @@ def create_user(user_repo: IUserRepository, res_repo: IUserRestrictionsRepositor
         raise FieldRequiredError("phone")
     new_user = user_repo.create_user(user_data)
     uid = new_user["uid"]
-    res_repo.create(UserRestrictionCreate(user_id=uid))
+    res_repo.create(UserCreditCreate(user_id=uid))
     return new_user
 
 
-# 更新学生信息
+# 更新学生基本信息
 def update_user(repo: IUserRepository, student_id: str, user_data: UserUpdate) -> Optional[UserOut]:
     updated_user = repo.update_user(student_id, user_data)
     if not updated_user:
@@ -84,7 +85,7 @@ def update_user(repo: IUserRepository, student_id: str, user_data: UserUpdate) -
 
 
 # 删除学生
-def delete_user(user_repo: IUserRepository, res_repo: IUserRestrictionsRepository, student_id: str) -> None:
+def delete_user(user_repo: IUserRepository, res_repo: IUserCreditRepository, student_id: str) -> None:
     user = user_repo.get_user_by_student_id(student_id)
     if not user:
         raise StudentNotFound(entity="student_id", identifier=student_id)
@@ -92,7 +93,7 @@ def delete_user(user_repo: IUserRepository, res_repo: IUserRestrictionsRepositor
     user_info =  user_repo.delete_user(student_id=student_id)
     return user_info
 
-def delete_batch_users(user_repo: IUserRepository, res_repo: IUserRestrictionsRepository, student_ids: List[str])-> Optional[BatchUsersOut]:
+def delete_batch_users(user_repo: IUserRepository, res_repo: IUserCreditRepository, student_ids: BatchDeleteRequest)-> Optional[BatchUsersOut]:
     for sid in student_ids:
         user = user_repo.get_user_by_student_id(sid)
         if not user:
