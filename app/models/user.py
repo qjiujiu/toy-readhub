@@ -29,5 +29,5 @@ class User(Base):
     # 反向引用：该用户的所有借阅订单
     orders = relationship("Order", back_populates="user")
     # 在 User 模型中加入：
-    restriction = relationship("UserRestriction", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    credit = relationship("UserCredit", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
