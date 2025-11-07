@@ -27,12 +27,19 @@ class UserCreate(BaseModel):
     email: Optional[EmailStr] = None
     phone: str
 
+    model_config = ConfigDict(from_attributes=True)
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
 
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+
 class BatchDeleteRequest(BaseModel):
     student_ids: List[str] = Field(..., description="要删除的学生学号列表")
+
+    model_config = ConfigDict(from_attributes=True)
+
+    # BatchDeleteRequest 样例：{"student_ids":["20250003","20250004"]}   
 
