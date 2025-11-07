@@ -45,7 +45,7 @@ def get_book_by_bid(loc_repo: IBookLocationRepository, bid: int, to_dict: bool =
 
 
 # 根据 ISBN 获取图书（可能有多本相同的书，返回其中一本图书的基本信息）
-def get_book_by_isbn(book_repo: IBookRepository, isbn: str) -> Optional[Dict]:
+def get_book_by_isbn(book_repo: IBookRepository, isbn: str) -> List[Dict]:
     books = book_repo.get_book_by_isbn(isbn)
     return books
 
