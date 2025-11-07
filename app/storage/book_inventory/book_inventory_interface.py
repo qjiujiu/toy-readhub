@@ -3,8 +3,8 @@ from app.schemas.book_inventory import BookInventoryCreate, BookInventoryUpdate,
 
 class IBookInventoryRepository(Protocol):
     # 根据图书ID获取图书库存信息
-    def get_inventory_by_book_id(self, book_id: int) -> Optional[BookInventoryOut]:
-        ...
+    # def get_inventories_by_bid(self, book_id: int) -> Optional[BookInventoryOut]:
+    #     ...
 
     def get_inventories_by_isbn(self, isbn: str) -> Optional[BookInventoryOut]:
         ...

@@ -11,16 +11,8 @@ class SQLAlchemyBookinvRepository(IBookInventoryRepository):
     def __init__(self, db: Session):
         self.db = db  # 数据库会话对象
     
-    # 根据图书ID获取图书库存信息
-    def get_inventories_by_bid(self, book_id: int) -> List[dict]:
-        invs = (
-            self.db.query(BookInventory)
-            .filter(BookInventory.book_id == book_id)
-            .order_by(BookInventory.warehouse_name.asc())  # 可选：按校区名排序
-            .all()
-        )
-        return [BookInventoryOut.model_validate(inv).model_dump() for inv in invs]
 
+    # 根据图书ISBN获取图书库存信息
     def get_inventories_by_isbn(self, isbn: str) -> List[dict]:
         invs = (
             self.db.query(BookInventory)
@@ -81,5 +73,16 @@ class SQLAlchemyBookinvRepository(IBookInventoryRepository):
             self.db.delete(inventory)   # 删除库存记录
         
         return BookInventoryOut.model_validate(inventory).model_dump()  # 返回更新后的库存信息
+    
+
+    # 根据图书ID获取图书库存信息
+    # def get_inventories_by_bid(self, book_id: int) -> List[dict]:
+    #     invs = (
+    #         self.db.query(BookInventory)
+    #         .filter(BookInventory.book_id == book_id)
+    #         .order_by(BookInventory.warehouse_name.asc())  # 可选：按校区名排序
+    #         .all()
+    #     )
+    #     return [BookInventoryOut.model_validate(inv).model_dump() for inv in invs]
     
     
