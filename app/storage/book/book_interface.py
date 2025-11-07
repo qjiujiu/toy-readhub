@@ -12,7 +12,7 @@ class IBookRepository(Protocol):
         ...
 
     # 根据 ISBN 获取图书
-    def get_book_by_isbn(self, isbn: str) -> Optional[BookOut]:
+    def get_book_by_isbn(self, isbn: str) -> BatchBooksOut:
         ...
 
     # 根据书名获取图书（可能有多本书同名）

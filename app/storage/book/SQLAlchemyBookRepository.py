@@ -26,11 +26,12 @@ class SQLAlchemyBookRepository(IBookRepository):
         return BookOut.model_validate(book).model_dump()
 
     # 根据 ISBN 获取图书
-    def get_book_by_isbn(self, isbn: str) -> Optional[BookOut]:
-        book = self.db.query(Book).filter(Book.isbn == isbn).first()
-        if not book:
+    def get_book_by_isbn(self, isbn: str) -> BatchBooksOut:
+        books = self.db.query(Book).filter(Book.isbn == isbn).all()
+        total = self.db.query(Book).filter(Book.isbn == isbn).count()
+        if not books:
             return None
-        return BookOut.model_validate(book).model_dump()
+        return BatchBooksOut(total=total, count=len(books), book=books)
 
     # 根据书名获取图书（可能有多本书同名）
     def get_books_by_title(self, title: str) -> List[BookOut]:
