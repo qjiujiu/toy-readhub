@@ -6,7 +6,7 @@ from app.storage.user.SQLAlchemyUserRepository import SQLAlchemyUserRepository
 from app.storage.book.SQLAlchemyBookRepository import SQLAlchemyBookRepository
 from app.storage.book_inventory.SQLAlchemyBookinvRepository import SQLAlchemyBookinvRepository
 from app.storage.book_location.SQLAlchemyBooklocRepository import SQLAlchemyBookLocationRepository
-from app.storage.user_restrictions.SQLAlchemyUserResRepository import SQLAlchemyUserRestrictionsRepository
+from app.storage.user_credit.SQLAlchemyUserCreRepository import SQLAlchemyUserCreditRepository
 from app.storage.order.SQLAlchemyOrderRepository import SQLAlchemyOrderRepository
 from fastapi import Depends
 
@@ -73,8 +73,8 @@ def get_bookinv_repo(db: Session = Depends(get_db)) -> SQLAlchemyBookinvReposito
 def get_bookloc_repo(db: Session = Depends(get_db)) -> SQLAlchemyBookLocationRepository:
     return SQLAlchemyBookLocationRepository(db)
 
-def get_userres_repo(db: Session = Depends(get_db)) -> SQLAlchemyUserRestrictionsRepository:
-    return SQLAlchemyUserRestrictionsRepository(db)
+def get_usercre_repo(db: Session = Depends(get_db)) -> SQLAlchemyUserCreditRepository:
+    return SQLAlchemyUserCreditRepository(db)
 
 def get_order_repo(db: Session = Depends(get_db)) -> SQLAlchemyOrderRepository:
     return SQLAlchemyOrderRepository(db)
