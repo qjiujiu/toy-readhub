@@ -3,19 +3,20 @@ from app.schemas.user import UserCreate, UserOut, BatchUsersOut, UserUpdate, Bat
 from typing import List
 from app.core.biz_response import BizResponse
 from app.service import user_svc
-from app.storage.database import get_user_repo, get_usercre_repo
+from app.storage.database import get_user_repo, get_usercre_repo, get_userlog_repo
 from typing import Optional, Dict, List
 from app.storage.user.user_interface import IUserRepository
 from app.storage.user_credit.user_credit_interface import IUserCreditRepository
+from app.storage.user_login.user_login_interface import IUserLoginRepository
 from app.core.exceptions import StudentIDAlreadyExists, FieldRequiredError, StudentNotFound
 
 users_router = APIRouter(prefix="/users", tags=["users"])
     
 # 添加学生信息
 @users_router.post("/", response_model=UserOut)
-def create_user(user: UserCreate, user_repo: IUserRepository = Depends(get_user_repo), res_repo: IUserCreditRepository = Depends(get_usercre_repo)):
+def create_user(user: UserCreate, user_repo: IUserRepository = Depends(get_user_repo), credit_repo: IUserCreditRepository = Depends(get_usercre_repo), login_repo: IUserLoginRepository = Depends(get_userlog_repo)):
     try:
-        new_user = user_svc.create_user(user_repo=user_repo, res_repo=res_repo, user_data=user)
+        new_user = user_svc.create_user(user_repo=user_repo, credit_repo=credit_repo, login_repo=login_repo, user_data=user)
         return BizResponse(data=new_user)
     except FieldRequiredError as e:
         return BizResponse(data=None, msg=str(e), status_code=400)
@@ -26,9 +27,9 @@ def create_user(user: UserCreate, user_repo: IUserRepository = Depends(get_user_
 
 # 批量添加学生
 @users_router.post("/batch", response_model=BatchUsersOut)
-def create_batch_users(users: List[UserCreate], user_repo: IUserRepository = Depends(get_user_repo), res_repo: IUserCreditRepository = Depends(get_usercre_repo)):
+def create_batch_users(users: List[UserCreate], user_repo: IUserRepository = Depends(get_user_repo), res_repo: IUserCreditRepository = Depends(get_usercre_repo), login_repo: IUserLoginRepository = Depends(get_userlog_repo)):
     try:
-        new_user = user_svc.create_batch_users(user_repo=user_repo, res_repo=res_repo, users=users)
+        new_user = user_svc.create_batch_users(user_repo=user_repo, res_repo=res_repo, login_repo=login_repo, users=users)
         return BizResponse(data=new_user)
     except Exception as e:
         return BizResponse(data=None, msg=str(e), status_code=500)
@@ -79,9 +80,9 @@ def update_user(student_id: str, user_update: UserUpdate, repo: IUserRepository 
 
 # 删除学生
 @users_router.delete("/sid/{student_id}", response_model=UserOut)
-def delete_user(student_id: str, user_repo: IUserRepository = Depends(get_user_repo), res_repo: IUserCreditRepository = Depends(get_usercre_repo)):
+def delete_user(student_id: str, user_repo: IUserRepository = Depends(get_user_repo), res_repo: IUserCreditRepository = Depends(get_usercre_repo), login_repo: IUserLoginRepository = Depends(get_userlog_repo)):
     try:
-        user = user_svc.delete_user(user_repo=user_repo, res_repo=res_repo, student_id=student_id)
+        user = user_svc.delete_user(user_repo=user_repo, res_repo=res_repo, login_repo=login_repo, student_id=student_id)
         return BizResponse(data=user, msg=f"delete successfully")
     except StudentNotFound as e:
         return BizResponse(data=False, msg=str(e), status_code=404)
@@ -90,9 +91,9 @@ def delete_user(student_id: str, user_repo: IUserRepository = Depends(get_user_r
     
 # 批量删除学生
 @users_router.delete("/batch", response_model=BatchUsersOut)
-def delete_batch_users_api(req: BatchDeleteRequest, user_repo: IUserRepository = Depends(get_user_repo), res_repo: IUserCreditRepository = Depends(get_usercre_repo)):
+def delete_batch_users_api(req: BatchDeleteRequest, user_repo: IUserRepository = Depends(get_user_repo), res_repo: IUserCreditRepository = Depends(get_usercre_repo), login_repo: IUserLoginRepository = Depends(get_userlog_repo)):
     try:
-        result = user_svc.delete_batch_users(user_repo=user_repo, res_repo=res_repo, student_ids=req.student_ids)
+        result = user_svc.delete_batch_users(user_repo=user_repo, res_repo=res_repo, login_repo=login_repo, student_ids=req.student_ids)
         return BizResponse(data=result)
     except StudentNotFound as e:
         return BizResponse(data=False, msg=str(e), status_code=404)
