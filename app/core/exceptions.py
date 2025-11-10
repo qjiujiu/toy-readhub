@@ -83,3 +83,8 @@ class UserisRestricted(Exception):
         self.uid = uid
         super().__init__(self.message)
 
+class InvalidCredentialsError(Exception):
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(self.message)
+
