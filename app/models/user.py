@@ -30,4 +30,6 @@ class User(Base):
     orders = relationship("Order", back_populates="user")
     # 在 User 模型中加入：
     credit = relationship("UserCredit", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    # 加入与 UserLogin 的反向关联
+    login_info = relationship("UserLogin", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
