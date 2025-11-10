@@ -27,7 +27,18 @@ class UserCreate(BaseModel):
     email: Optional[EmailStr] = None
     phone: str
 
+    password: str                     # 用户登录密码
+
     model_config = ConfigDict(from_attributes=True)
+
+class UserOnlyCreate(BaseModel):
+    name: str
+    student_id: str
+    email: Optional[EmailStr] = None
+    phone: str
+
+    model_config = ConfigDict(from_attributes=True)
+
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
